@@ -1,0 +1,133 @@
+:root {
+  /* Color Palette - Modern Dark Academic */
+  --bg-primary: #0a0c10;
+  --bg-secondary: #161b22;
+  --bg-glass: rgba(22, 27, 34, 0.7);
+  --border-glass: rgba(255, 255, 255, 0.1);
+  
+  --text-primary: #f0f6fc;
+  --text-secondary: #8b949e;
+  --text-dim: #484f58;
+
+  /* Role Accents */
+  --accent-student: #238636; /* Neon Green */
+  --accent-academician: #8957e5; /* Neon Purple */
+  --accent-admin: #d29922; /* Gold */
+  
+  /* UI Elements */
+  --shadow-main: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+  --blur-amount: 12px;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+/* Glassmorphism Utility */
+.glass-card {
+  background: var(--bg-glass);
+  backdrop-filter: blur(var(--blur-amount));
+  -webkit-backdrop-filter: blur(var(--blur-amount));
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-main);
+  border-radius: var(--radius-lg);
+}
+
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  transition: var(--transition);
+}
+
+/* Typography */
+h1, h2, h3 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Layout */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+/* Buttons & Interactive Elements */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.8rem 1.5rem;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+.btn-primary {
+  background: var(--accent-student);
+  color: white;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.2);
+  box-shadow: 0 0 15px rgba(35, 134, 54, 0.4);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-secondary);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+
+/* Animations */
+@keyframes pulse-orange {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.2); }
+  70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.mandatory-pulse {
+  animation: pulse-orange 2s infinite;
+}
+
+.btn-active-scale:active {
+  transform: scale(0.90);
+  filter: brightness(0.7);
+  transition: transform 0.05s ease;
+}
+
+.btn-active-scale:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
