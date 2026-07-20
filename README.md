@@ -1,184 +1,377 @@
-# 🎓 OBS — Academic Management Portal
+# OBS-Demo — Academic Information System
 
-<div align="center">
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
+![Role Based](https://img.shields.io/badge/RBAC-Authorization-ff69b4?style=for-the-badge)
+![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
 
-![Java](https://img.shields.io/badge/Java-17-orange?style=for-the-badge&logo=openjdk)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-brightgreen?style=for-the-badge&logo=springboot)
-![React](https://img.shields.io/badge/React-18-blue?style=for-the-badge&logo=react)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql)
-![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker)
-
-**A full-stack, role-based Academic Information System built with Spring Boot & React.**
-
-</div>
+**A comprehensive academic management system with role-based portals for Root Admin, Academicians, and Students. Features course management, grade tracking, enrollment, and transcript generation.**
 
 ---
 
-## 📋 Overview
+## 🎯 Project Overview
 
-OBS (Öğrenci Bilgi Sistemi) is a modern, full-stack **Student Information System** designed to manage all aspects of university operations — from student enrollment and grade tracking to academician management and administrative oversight.
-
-The system supports four distinct user roles, each with a dedicated portal and tailored feature set.
-
----
-
-## ✨ Features
-
-### 🔴 Root Admin Portal
-- System-wide dashboard with real-time statistics (students, staff, courses)
-- Full CRUD for users: Students, Academicians, Administrative Staff
-- Department-based course management with instructor assignment
-- Role-colored personnel directory (Students: Green, Academicians: Purple, Staff: Orange)
-- Live **System Activity Feed** — audit log of all critical actions
-- Global announcement broadcasting
-
-### 🟣 Academician Portal
-- Personal dashboard with assigned courses and student lists
-- Grade entry and approval workflow
-- Attendance tracking per course
-- Office hours management
-- Advisee performance monitoring
-- Exam scheduling
-
-### 🟢 Student Portal
-- Dashboard with enrolled courses, GPA, and upcoming exams
-- Course registration system with prerequisite validation
-- Weekly schedule view
-- Full transcript with semester-by-semester GPA
-- Grade simulation tool
-- To-Do list and notification center
-
-### 🟡 Administrative Staff Portal
-- Department-scoped dashboard and reporting
-- Student and course management within assigned unit
-
-### 💬 Shared Features
-- Real-time messaging system between all roles
-- JWT-based authentication & role-based access control
-- Glassmorphism dark-mode UI
+OBS (Online Banking System renamed to Onboard System here) is an enterprise-grade academic information system demonstrating:
+- Multi-role authentication & authorization
+- Complex business logic (enrollment, grading, transcripts)
+- Department and faculty management
+- Real-time grade reporting
+- Student academic history tracking
 
 ---
 
-## 🏗️ Tech Stack
+## ✨ Key Features
 
-| Layer | Technology |
-|-------|-----------|
-| **Backend** | Java 17, Spring Boot 3, Spring Security, JPA/Hibernate |
-| **Database** | PostgreSQL 16 |
-| **Auth** | JWT (JSON Web Token) |
-| **Frontend** | React 18, Vite, Lucide React |
-| **Styling** | CSS (Glassmorphism Dark Theme) |
-| **DevOps** | Docker, Docker Compose |
+### 👨‍💼 Root Admin Portal
+- 📊 System overview & analytics
+- 👥 User management (create, deactivate, assign roles)
+- 🏫 Department management
+- 📋 Faculty management
+- 🔐 System configuration & security
+
+### 👨‍🏫 Academician (Faculty) Portal
+- 📚 Manage assigned courses
+- 📝 Create & update course content
+- 📊 Grade students
+- 👀 View student performance
+- 📈 Generate class reports
+- 🗂️ Manage attendance
+
+### 👨‍🎓 Student Portal
+- 📖 View available courses
+- ✅ Enroll in courses
+- 👁️ Check grades & transcripts
+- 📑 View course materials
+- 📅 Track academic progress
+- 🎓 Download transcript
+
+### System Features
+- ✅ JWT authentication with refresh tokens
+- ✅ Role-based access control (RBAC)
+- ✅ Course enrollment validation
+- ✅ GPA calculation
+- ✅ Transcript generation
+- ✅ Audit logging
+- ✅ Data export (PDF reports)
 
 ---
 
-## 🗂️ Project Structure
+## 🏗️ Technical Architecture
 
+### Backend Stack
+- **Framework:** Spring Boot 3.x
+- **Security:** Spring Security + JWT
+- **ORM:** Hibernate/JPA
+- **Database:** PostgreSQL
+- **API:** RESTful with OpenAPI docs
+- **Validation:** Bean Validation
+- **Caching:** Spring Cache (Redis ready)
+
+### Frontend Stack
+- **UI Framework:** React 18
+- **State Management:** Context API / Redux
+- **Styling:** Tailwind CSS / Bootstrap
+- **HTTP Client:** Axios
+- **Routing:** React Router v6
+- **Component Library:** Custom + Ant Design (optional)
+
+---
+
+## 🗄️ Database Schema
+
+### Core Tables
+
+```sql
+-- Users (base for all roles)
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255),
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    role VARCHAR(50),  -- ADMIN, ACADEMICIAN, STUDENT
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Departments
+CREATE TABLE departments (
+    id UUID PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    code VARCHAR(20),
+    description TEXT
+);
+
+-- Programs (Degree programs like BS, MS)
+CREATE TABLE programs (
+    id UUID PRIMARY KEY,
+    department_id UUID REFERENCES departments(id),
+    name VARCHAR(100),
+    duration_years INT,
+    total_credits INT
+);
+
+-- Courses
+CREATE TABLE courses (
+    id UUID PRIMARY KEY,
+    code VARCHAR(20) UNIQUE NOT NULL,
+    name VARCHAR(100),
+    department_id UUID REFERENCES departments(id),
+    credit_hours INT,
+    description TEXT,
+    max_students INT
+);
+
+-- Faculty (Academicians)
+CREATE TABLE faculty (
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
+    department_id UUID REFERENCES departments(id),
+    qualification VARCHAR(100)
+);
+
+-- Course Offerings (semester-based)
+CREATE TABLE course_offerings (
+    id UUID PRIMARY KEY,
+    course_id UUID REFERENCES courses(id),
+    faculty_id UUID REFERENCES faculty(id),
+    semester VARCHAR(20),  -- Spring2024, Fall2024
+    capacity INT,
+    schedule JSONB  -- Days and times
+);
+
+-- Enrollments
+CREATE TABLE enrollments (
+    id UUID PRIMARY KEY,
+    student_id UUID REFERENCES users(id),
+    course_offering_id UUID REFERENCES course_offerings(id),
+    enrollment_date TIMESTAMP,
+    status VARCHAR(50),  -- ACTIVE, COMPLETED, DROPPED
+    UNIQUE(student_id, course_offering_id)
+);
+
+-- Grades
+CREATE TABLE grades (
+    id UUID PRIMARY KEY,
+    enrollment_id UUID REFERENCES enrollments(id),
+    assignment_name VARCHAR(100),
+    marks DECIMAL(5,2),
+    max_marks DECIMAL(5,2),
+    grade_type VARCHAR(50),  -- ASSIGNMENT, EXAM, PARTICIPATION
+    UNIQUE(enrollment_id, assignment_name)
+);
+
+-- Transcripts
+CREATE TABLE transcripts (
+    id UUID PRIMARY KEY,
+    student_id UUID REFERENCES users(id),
+    semester VARCHAR(20),
+    gpa DECIMAL(3,2),
+    total_credits INT,
+    generated_at TIMESTAMP
+);
 ```
-OBS/
-├── backend/                  # Spring Boot application
-│   └── src/main/java/com/obs/backend/
-│       ├── controller/       # REST API endpoints
-│       ├── service/          # Business logic layer
-│       ├── model/            # JPA entities
-│       ├── repository/       # Spring Data repositories
-│       ├── dto/              # Data Transfer Objects
-│       ├── security/         # JWT & Spring Security config
-│       └── exception/        # Global error handling
-├── frontend/                 # React application
-│   └── src/
-│       ├── pages/            # Role-based page components
-│       ├── services/         # Axios API service layer
-│       ├── components/       # Shared UI components
-│       ├── context/          # Auth context & state
-│       └── layouts/          # Portal layout wrappers
-├── docker-compose.yml
-└── seed.sql                  # Initial database seed data
+
+---
+
+## 📚 API Endpoints
+
+### Authentication
+```http
+POST /api/v1/auth/login
+POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
+```
+
+### Admin Endpoints
+```http
+GET /api/v1/admin/users
+POST /api/v1/admin/users
+GET /api/v1/admin/departments
+POST /api/v1/admin/departments
+
+GET /api/v1/admin/programs
+POST /api/v1/admin/programs
+
+GET /api/v1/admin/analytics
+```
+
+### Academician Endpoints
+```http
+GET /api/v1/academician/courses
+GET /api/v1/academician/courses/{courseId}/students
+POST /api/v1/academician/courses/{courseId}/grades
+  {
+    "enrollmentId": "uuid",
+    "marks": 85.5,
+    "assignmentName": "Midterm"
+  }
+
+GET /api/v1/academician/courses/{courseId}/report
+```
+
+### Student Endpoints
+```http
+GET /api/v1/student/courses/available
+POST /api/v1/student/enrollments
+  {
+    "courseOfferingId": "uuid"
+  }
+
+GET /api/v1/student/enrollments
+GET /api/v1/student/grades
+GET /api/v1/student/transcript
+GET /api/v1/student/transcript/download  # PDF
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🧪 Testing
 
-### Prerequisites
-- Java 17+
-- Node.js 18+
-- PostgreSQL 16 (or Docker)
-
-### 1. Clone the repository
 ```bash
-git clone https://github.com/devberatzengin/OBS-Demo.git
-cd OBS-Demo
+# Backend tests
+mvn test
+
+# Run specific test
+mvn test -Dtest=EnrollmentServiceTest
+
+# With coverage
+mvn test jacoco:report
+
+# Frontend tests
+cd frontend
+npm test
+
+# E2E with Cypress
+npm run e2e
 ```
 
-### 2. Start the database (via Docker)
-```bash
-docker-compose up -d
-```
+---
 
-### 3. Run the Backend
+## 🚀 Running the Project
+
+### Backend
+
 ```bash
 cd backend
-./gradlew bootRun
+mvn clean install
+mvn spring-boot:run
+# API: http://localhost:8080
+# Docs: http://localhost:8080/swagger-ui.html
 ```
-> API will be available at `http://localhost:8080`
 
-### 4. Run the Frontend
+### Frontend
+
 ```bash
 cd frontend
 npm install
-npm run dev
+npm start
+# UI: http://localhost:3000
 ```
-> App will be available at `http://localhost:5173`
 
----
+### With Docker
 
-## 🔑 Default Credentials (Seed Data)
-
-| Role | Username | Password |
-|------|----------|----------|
-| Root Admin | `sysadmin` | `admin123` |
-| Academician | `prof.smith` | `123456` |
-| Student | `student01` | `123456` |
-
-> ⚠️ Change these credentials before any production deployment.
-
----
-
-## 📸 Screenshots
-
-> Login Page · Admin Dashboard · Student Portal · Academician Grade Entry
-
-*(Add screenshots here)*
-
----
-
-## 🛡️ Architecture
-
-```
-Client (React + Vite)
-    │
-    │  HTTP / REST
-    ▼
-Spring Boot API (Port 8080)
-    │  Spring Security + JWT Filter
-    │
-    ├── Controllers (AuthController, AdminUserController, StudentController...)
-    ├── Services (AdminServiceImpl, StudentServiceImpl, TranscriptServiceImpl...)
-    ├── Repositories (JPA / Spring Data)
-    │
-    ▼
-PostgreSQL Database
+```bash
+docker-compose up -d
+# Services running on configured ports
 ```
 
 ---
 
-## 📄 License
+## 📋 Enrollment Workflow
 
-This project is intended for academic and portfolio purposes.
+```
+1. Student views available courses
+   ↓
+2. Student clicks "Enroll"
+   ↓
+3. Backend validates:
+   - Prerequisites passed?
+   - Not already enrolled?
+   - Capacity available?
+   ↓
+4. If valid → Create enrollment record
+   ↓
+5. Student can now see course in dashboard
+   ↓
+6. Academician enters grades
+   ↓
+7. System calculates course grade
+   ↓
+8. Semester transcript generated
+```
 
 ---
 
-<div align="center">
-Made with ☕ and 💻 — <a href="https://github.com/devberatzengin">@devberatzengin</a>
-</div>
+## 📊 GPA Calculation
+
+```
+GPA = Σ(Credit Hours × Grade Point) / Σ Credit Hours
+
+Grade Map:
+A (4.0) = 90-100
+B (3.0) = 80-89
+C (2.0) = 70-79
+D (1.0) = 60-69
+F (0.0) = Below 60
+```
+
+---
+
+## 🔒 Security
+
+- ✅ JWT tokens with expiry
+- ✅ Role-based access (@PreAuthorize)
+- ✅ Password hashing (bcrypt)
+- ✅ SQL injection prevention
+- ✅ CORS configuration
+- ✅ Audit logging for sensitive operations
+
+---
+
+## 📈 Performance Considerations
+
+- Caching frequently accessed data
+- Indexed queries on student_id, course_id
+- Pagination for large result sets
+- Lazy loading for related entities
+- Connection pooling with HikariCP
+
+---
+
+## 🔄 Future Enhancements
+
+- [ ] Course prerequisites validation
+- [ ] Waitlist for full courses
+- [ ] Transcript notarization
+- [ ] Mobile app
+- [ ] Real-time notifications
+- [ ] Advanced analytics dashboard
+- [ ] Course recommendations
+- [ ] Student performance predictions (ML)
+
+---
+
+## 📂 Project Structure
+
+```
+obs-demo/
+├── backend/
+│   ├── src/main/java/com/obs/
+│   │   ├── controller/
+│   │   ├── service/
+│   │   ├── repository/
+│   │   ├── entity/
+│   │   └── dto/
+│   └── pom.xml
+└── frontend/
+    ├── src/
+    │   ├── pages/
+    │   ├── components/
+    │   └── services/
+    └── package.json
+```
+
+---
