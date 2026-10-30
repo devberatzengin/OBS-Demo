@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, BookOpen, Calendar, CalendarClock, FileText, MessageSquare,
   CheckSquare, LogOut, PanelLeftClose, PanelLeftOpen, User as UserIcon,
-  ClipboardCheck, Users, GraduationCap,
+  ClipboardCheck, Users, GraduationCap, Building2,
 } from 'lucide-react';
 import { ThemeToggle, cn } from './ui';
 
@@ -22,6 +22,7 @@ const MENUS = {
     { name: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
     { name: 'Users', icon: Users, path: '/admin/users' },
     { name: 'Courses', icon: BookOpen, path: '/admin/courses' },
+    { name: 'Infrastructure', icon: Building2, path: '/admin/infra' },
     { name: 'Messages', icon: MessageSquare, path: '/admin/messages' },
   ],
   ADMINISTRATIVE: [

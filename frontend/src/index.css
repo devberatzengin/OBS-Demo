@@ -110,30 +110,3 @@
 
 /* Thin, theme-aware scrollbars */
 * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
-
-/* ---------- Legacy bridge ----------
-   Pages not yet migrated still read these variables. They now resolve to
-   the new tokens so everything follows the active theme during migration. */
-:root, .dark {
-  --bg-primary: var(--bg);
-  --bg-secondary: var(--surface-muted);
-  --bg-glass: var(--surface);
-  --border-glass: var(--border);
-  --text-primary: var(--fg);
-  --text-secondary: var(--fg-muted);
-  --text-dim: var(--fg-subtle);
-  --accent-student: var(--accent);
-  --accent-academician: var(--accent);
-  --accent-admin: var(--accent);
-  --shadow-main: var(--shadow-sm);
-  --radius-lg: 12px;
-  --radius-md: 8px;
-  --transition: all 0.15s ease;
-}
-
-.glass-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-  border-radius: 12px;
-}

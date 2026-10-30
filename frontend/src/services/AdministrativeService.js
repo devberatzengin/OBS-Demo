@@ -38,6 +38,10 @@ const AdministrativeService = {
     const response = await api.get('/admin/operations/logs');
     return response.data;
   },
+  sendAnnouncement: async (data) => {
+    const response = await api.post('/admin/operations/announcement', data);
+    return response.data;
+  },
   // Profile
   getProfile: async () => {
     const response = await api.get('/admin/users/profile');
