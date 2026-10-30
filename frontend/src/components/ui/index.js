@@ -7,3 +7,6 @@ export { Table, THead, TBody, TR, TH, TD } from './Table';
 export { PageHeader, StatCard, EmptyState, Spinner, Alert } from './Feedback';
 export { default as Modal } from './Modal';
 export { default as ThemeToggle } from './ThemeToggle';
+export { default as ToastProvider } from './ToastProvider';
+export { useToast } from './toast-context';
+export { default as ConfirmDialog } from './ConfirmDialog';

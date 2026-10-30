@@ -1,259 +1,114 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Calendar as CalendarIcon, 
-  Clock, 
-  MapPin, 
-  AlertCircle,
-  FileText,
-  BadgeCheck,
-  Timer
-} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { CalendarClock, CalendarCheck2, Clock, MapPin, Percent } from 'lucide-react';
 import StudentService from '../services/StudentService';
+import { Alert, Badge, Card, CardHeader, EmptyState, PageHeader, Spinner, StatCard, cn } from '../components/ui';
+import { examTypeLabel, formatTime, relativeDays, toDate } from '../lib/format';
+
+const STATUS = {
+  UPCOMING: ['accent', 'Upcoming'],
+  ATTENDED: ['success', 'Attended'],
+  MISSED: ['danger', 'Missed'],
+};
+
+const TYPE_TONE = { FINAL: 'danger', MIDTERM: 'info', MAKEUP: 'warning', QUIZ: 'neutral' };
+
+function ExamRow({ exam }) {
+  const d = toDate(exam.examDate);
+  const [tone, label] = STATUS[exam.status] ?? ['neutral', exam.status];
+  return (
+    <li className="flex items-center gap-4 px-5 py-4">
+      <div className="flex w-14 shrink-0 flex-col items-center rounded-lg border border-border bg-surface-muted py-1.5">
+        <span className="text-[10px] font-semibold tracking-wide text-fg-subtle uppercase">
+          {d.toLocaleDateString('en-GB', { month: 'short' })}
+        </span>
+        <span className="text-xl leading-tight font-semibold tabular-nums">{d.getDate()}</span>
+        <span className="text-[10px] text-fg-subtle">{d.toLocaleDateString('en-GB', { weekday: 'short' })}</span>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone={TYPE_TONE[exam.examType] ?? 'neutral'}>{examTypeLabel(exam.examType)}</Badge>
+          <span className="text-xs font-semibold text-accent">{exam.courseCode}</span>
+        </div>
+        <p className="mt-1 truncate text-sm font-medium">{exam.courseName}</p>
+        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-subtle">
+          <span className="flex items-center gap-1"><Clock className="size-3.5" />{formatTime(exam.examDate)}</span>
+          <span className="flex items-center gap-1"><MapPin className="size-3.5" />{exam.classroomCode || 'Room TBA'}</span>
+          {exam.ratio != null && <span className="flex items-center gap-1"><Percent className="size-3.5" />{exam.ratio}% of grade</span>}
+        </div>
+      </div>
+
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <Badge tone={tone}>{label}</Badge>
+        {exam.status === 'UPCOMING' && <span className="text-xs text-fg-subtle">{relativeDays(exam.examDate)}</span>}
+      </div>
+    </li>
+  );
+}
 
 const ExamCalendar = () => {
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const parseDate = (dateVal) => {
-    if (!dateVal) return new Date();
-    if (Array.isArray(dateVal)) {
-      // LocalDateTime as array [year, month, day, hour, minute]
-      return new Date(dateVal[0], dateVal[1] - 1, dateVal[2], dateVal[3] || 0, dateVal[4] || 0);
-    }
-    return new Date(dateVal);
-  };
-
   useEffect(() => {
-    const fetchExams = async () => {
-      try {
-        const data = await StudentService.getExamCalendar();
-        setExams(data);
-      } catch (err) {
-        setError('Failed to load exam calendar');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchExams();
+    StudentService.getExamCalendar()
+      .then(setExams)
+      .catch(() => setError('Could not load the exam calendar.'))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return (
-    <div style={styles.center}>
-      <div style={styles.spinner}></div>
-    </div>
-  );
+  const { upcoming, past } = useMemo(() => {
+    const sorted = [...exams].sort((a, b) => toDate(a.examDate) - toDate(b.examDate));
+    const now = new Date();
+    return {
+      upcoming: sorted.filter((e) => e.status === 'UPCOMING' || (!e.status && toDate(e.examDate) >= now)),
+      past: sorted.filter((e) => !(e.status === 'UPCOMING' || (!e.status && toDate(e.examDate) >= now))).reverse(),
+    };
+  }, [exams]);
+
+  if (loading) return <Spinner label="Loading exams…" />;
+
+  const next = upcoming[0];
+  const thisWeek = upcoming.filter((e) => (toDate(e.examDate) - new Date()) / 86400000 <= 7).length;
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Exam Calendar</h1>
-        <p style={styles.subtitle}>Upcoming midterms, finals, and makeup exams</p>
+    <>
+      <PageHeader title="Exam calendar" description="Midterms, finals and make-up exams for this semester." />
+      {error && <Alert tone="danger" className="mb-6">{error}</Alert>}
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          label="Next exam"
+          value={next ? next.courseCode : '—'}
+          hint={next ? `${examTypeLabel(next.examType)} · ${relativeDays(next.examDate)}` : 'Nothing scheduled'}
+          icon={CalendarClock}
+        />
+        <StatCard label="In the next 7 days" value={thisWeek} icon={Clock} tone={thisWeek > 2 ? 'warning' : 'info'} />
+        <StatCard label="Completed" value={past.filter((e) => e.status === 'ATTENDED').length} icon={CalendarCheck2} tone="success"
+          hint={past.some((e) => e.status === 'MISSED') ? `${past.filter((e) => e.status === 'MISSED').length} missed` : undefined} />
       </div>
 
-      {error && (
-        <div style={styles.errorBox}>
-          <AlertCircle size={20} /> {error}
-        </div>
-      )}
-
-      {exams.length > 0 ? (
-        <div style={styles.examsList}>
-          {exams.sort((a, b) => new Date(a.examDate) - new Date(b.examDate)).map((exam, idx) => (
-            <div key={idx} className="glass-card" style={styles.examCard}>
-              <div style={styles.dateBadge}>
-                <span style={styles.dateDay}>{new Date(exam.examDate).getDate()}</span>
-                <span style={styles.dateMonth}>
-                  {new Date(exam.examDate).toLocaleString('default', { month: 'short' })}
-                </span>
-              </div>
-
-              <div style={styles.examInfo}>
-                <div style={styles.examTypeRow}>
-                  <span style={{
-                    ...styles.typeBadge,
-                    background: exam.examType === 'FINAL' ? 'rgba(137, 87, 229, 0.2)' : 'rgba(35, 134, 54, 0.2)',
-                    color: exam.examType === 'FINAL' ? 'var(--accent-academician)' : 'var(--accent-student)'
-                  }}>
-                    {exam.examType}
-                  </span>
-                  <span style={styles.courseCode}>{exam.courseCode}</span>
-                </div>
-                <h3 style={styles.courseName}>{exam.courseName}</h3>
-              </div>
-
-              <div style={styles.detailsGrid}>
-                <div style={styles.detailItem}>
-                  <Clock size={16} color="var(--accent-student)" />
-                  <span>{new Date(exam.examDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-                <div style={styles.detailItem}>
-                  <MapPin size={16} color="var(--accent-student)" />
-                  <span>{exam.classroomCode || 'TBA'}</span>
-                </div>
-              </div>
-
-              <div style={styles.examAction}>
-                <Timer size={24} style={styles.timerIcon} />
-              </div>
-            </div>
-          ))}
-        </div>
+      {exams.length === 0 ? (
+        <Card><EmptyState icon={CalendarCheck2} title="No exams yet" description="Exams appear here once your instructors schedule them." /></Card>
       ) : (
-        <div style={styles.emptyState}>
-          <BadgeCheck size={64} color="var(--accent-student)" style={{opacity: 0.3}} />
-          <h2 style={styles.emptyTitle}>All Clear!</h2>
-          <p style={styles.emptySub}>No upcoming exams found in your schedule.</p>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader title="Upcoming" description={`${upcoming.length} exam${upcoming.length === 1 ? '' : 's'}`} />
+            {upcoming.length === 0
+              ? <EmptyState icon={CalendarCheck2} title="Nothing coming up" />
+              : <ul className="divide-y divide-border">{upcoming.map((e, i) => <ExamRow key={i} exam={e} />)}</ul>}
+          </Card>
+          {past.length > 0 && (
+            <Card className={cn('opacity-95')}>
+              <CardHeader title="Past" description={`${past.length} exam${past.length === 1 ? '' : 's'}`} />
+              <ul className="divide-y divide-border">{past.map((e, i) => <ExamRow key={i} exam={e} />)}</ul>
+            </Card>
+          )}
         </div>
       )}
-    </div>
+    </>
   );
-};
-
-const styles = {
-  center: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '60vh'
-  },
-  spinner: {
-    width: '40px',
-    height: '40px',
-    border: '4px solid rgba(255,255,255,0.1)',
-    borderTopColor: 'var(--accent-student)',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite'
-  },
-  container: {
-    padding: '2rem',
-    maxWidth: '1000px',
-    margin: '0 auto'
-  },
-  header: {
-    textAlign: 'center',
-    marginBottom: '4rem'
-  },
-  title: {
-    fontSize: '3rem',
-    fontWeight: '800',
-    marginBottom: '0.5rem'
-  },
-  subtitle: {
-    color: 'var(--text-secondary)',
-    fontSize: '1.1rem'
-  },
-  errorBox: {
-    background: 'rgba(248, 81, 73, 0.1)',
-    color: '#f85149',
-    padding: '1.2rem',
-    borderRadius: '16px',
-    marginBottom: '2rem',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.8rem',
-    border: '1px solid rgba(248, 81, 73, 0.2)'
-  },
-  examsList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1.5rem'
-  },
-  examCard: {
-    padding: '1.5rem 2rem',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '2.5rem',
-    borderRadius: '28px',
-    transition: 'var(--transition)'
-  },
-  dateBadge: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid var(--border-glass)',
-    padding: '1rem',
-    borderRadius: '20px',
-    minWidth: '90px'
-  },
-  dateDay: {
-    fontSize: '1.8rem',
-    fontWeight: '800',
-    color: 'var(--accent-student)'
-  },
-  dateMonth: {
-    fontSize: '0.75rem',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    color: 'var(--text-dim)',
-    letterSpacing: '1px'
-  },
-  examInfo: {
-    flex: 1
-  },
-  examTypeRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.8rem',
-    marginBottom: '0.5rem'
-  },
-  typeBadge: {
-    fontSize: '0.65rem',
-    fontWeight: '800',
-    padding: '0.3rem 0.8rem',
-    borderRadius: '100px',
-    letterSpacing: '0.5px'
-  },
-  courseCode: {
-    fontSize: '0.75rem',
-    color: 'var(--text-dim)',
-    fontWeight: '600'
-  },
-  courseName: {
-    fontSize: '1.25rem',
-    fontWeight: '700',
-    color: 'white'
-  },
-  detailsGrid: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.8rem',
-    minWidth: '180px'
-  },
-  detailItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.8rem',
-    fontSize: '0.85rem',
-    color: 'var(--text-secondary)'
-  },
-  examAction: {
-    color: 'var(--text-dim)',
-    opacity: 0.3
-  },
-  timerIcon: {
-    transition: 'var(--transition)'
-  },
-  emptyState: {
-    textAlign: 'center',
-    padding: '6rem 2rem',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '1.5rem',
-    border: '2px dashed var(--border-glass)',
-    borderRadius: '40px'
-  },
-  emptyTitle: {
-    fontSize: '2rem',
-    fontWeight: '800'
-  },
-  emptySub: {
-    color: 'var(--text-dim)',
-    fontSize: '1rem'
-  }
 };
 
 export default ExamCalendar;

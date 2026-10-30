@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  ClipboardCheck, 
-  AlertTriangle, 
-  CheckCircle2, 
-  XCircle,
-  Loader2,
-  BookOpen
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CheckCircle2, ClipboardCheck, TriangleAlert, XCircle } from 'lucide-react';
 import StudentService from '../services/StudentService';
+import { Alert, Badge, Card, EmptyState, PageHeader, Spinner, StatCard, cn } from '../components/ui';
+
+const THRESHOLD = 70; // minimum attendance %, mirrors the backend rule
+
+const statusOf = (item) => {
+  if (item.isLimitExceeded) return ['danger', 'Limit exceeded'];
+  if (item.totalHours > 0 && item.attendancePercentage < THRESHOLD + 10) return ['warning', 'At risk'];
+  return ['success', 'Good standing'];
+};
 
 const AttendancePage = () => {
   const [attendance, setAttendance] = useState([]);
@@ -15,187 +17,94 @@ const AttendancePage = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchAttendance = async () => {
-      try {
-        const data = await StudentService.getAttendance();
-        setAttendance(data);
-      } catch (err) {
-        setError('Failed to fetch attendance data');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAttendance();
+    StudentService.getAttendance()
+      .then(setAttendance)
+      .catch(() => setError('Could not load attendance.'))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return (
-    <div style={styles.center}>
-      <Loader2 className="animate-spin" size={40} color="var(--accent-student)" />
-    </div>
-  );
+  if (loading) return <Spinner label="Loading attendance…" />;
+
+  const totalHours = attendance.reduce((s, a) => s + a.totalHours, 0);
+  const present = attendance.reduce((s, a) => s + a.presentHours, 0);
+  const overall = totalHours ? (present / totalHours) * 100 : 0;
+  const exceeded = attendance.filter((a) => a.isLimitExceeded);
 
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Attendance Report</h1>
-          <p style={styles.subtitle}>Track your class participation and limits</p>
-        </div>
-      </header>
+    <>
+      <PageHeader title="Attendance" description={`You need at least ${THRESHOLD}% attendance in each course.`} />
 
-      <div style={styles.grid}>
-        {attendance.map((item, idx) => {
-          const percentage = item.attendancePercentage;
-          const isCritical = item.isLimitExceeded;
+      {error && <Alert tone="danger" className="mb-6">{error}</Alert>}
+      {exceeded.length > 0 && (
+        <Alert tone="danger" title="Attendance limit exceeded" className="mb-6">
+          {exceeded.map((a) => a.courseCode).join(', ')} {exceeded.length > 1 ? 'are' : 'is'} below {THRESHOLD}%. Talk to your instructor or advisor.
+        </Alert>
+      )}
 
-          return (
-            <div key={idx} className="glass-card" style={{
-              ...styles.card,
-              borderLeft: `4px solid ${isCritical ? '#f85149' : 'var(--accent-student)'}`
-            }}>
-              <div style={styles.cardHeader}>
-                <div style={styles.courseInfo}>
-                  <BookOpen size={20} color="var(--accent-student)" />
-                  <h3 style={styles.courseName}>{item.courseName}</h3>
-                </div>
-                <span style={{
-                  ...styles.statusBadge,
-                  background: isCritical ? 'rgba(248, 81, 73, 0.1)' : 'rgba(35, 134, 54, 0.1)',
-                  color: isCritical ? '#f85149' : 'var(--accent-student)'
-                }}>
-                  {isCritical ? 'Critical' : 'Good'}
-                </span>
-              </div>
-
-              <div style={styles.statsRow}>
-                <div style={styles.statBox}>
-                  <p style={styles.statLabel}>Present</p>
-                  <p style={styles.statValue}>{item.presentHours}</p>
-                </div>
-                <div style={styles.statBox}>
-                  <p style={styles.statLabel}>Absent</p>
-                  <p style={{...styles.statValue, color: isCritical ? '#f85149' : 'inherit'}}>{item.absentHours}</p>
-                </div>
-                <div style={styles.statBox}>
-                  <p style={styles.statLabel}>Attendance %</p>
-                  <p style={styles.statValue}>{Math.round(percentage)}%</p>
-                </div>
-              </div>
-
-              <div style={styles.progressBarBg}>
-                <div style={{
-                  ...styles.progressBarFill,
-                  width: `${percentage}%`,
-                  background: isCritical ? '#f85149' : 'var(--accent-student)'
-                }}></div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Overall attendance" value={totalHours ? `${Math.round(overall)}%` : '—'} icon={ClipboardCheck}
+          tone={overall >= THRESHOLD ? 'success' : 'danger'} hint={`${present} of ${totalHours} hours`} />
+        <StatCard label="Hours missed" value={totalHours - present} icon={XCircle} tone="warning" />
+        <StatCard label="Courses at risk" value={attendance.filter((a) => statusOf(a)[0] !== 'success').length} icon={TriangleAlert}
+          tone={exceeded.length ? 'danger' : 'info'} />
       </div>
 
-      {attendance.length === 0 && (
-        <div style={styles.emptyState}>
-          <ClipboardCheck size={48} color="var(--text-dim)" />
-          <p>No attendance records found for this semester.</p>
+      {attendance.length === 0 ? (
+        <Card><EmptyState icon={ClipboardCheck} title="No attendance recorded yet" description="Your instructors haven't taken attendance this semester." /></Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {attendance.map((a) => {
+            const [tone, label] = statusOf(a);
+            const pct = Math.round(a.attendancePercentage);
+            // Absences still allowed if no further classes are missed, based on hours recorded so far
+            const allowed = Math.max(Math.floor(a.totalHours * (1 - THRESHOLD / 100)) - a.absentHours, 0);
+            return (
+              <Card key={a.courseCode} className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-accent">{a.courseCode}</p>
+                    <p className="mt-0.5 truncate text-sm font-medium">{a.courseName}</p>
+                  </div>
+                  <Badge tone={tone}>{label}</Badge>
+                </div>
+
+                <div className="mt-5 flex items-end justify-between">
+                  <p className={cn('text-3xl font-semibold tabular-nums', tone === 'danger' && 'text-danger')}>{pct}%</p>
+                  <p className="text-xs text-fg-subtle">{a.presentHours}/{a.totalHours} hours</p>
+                </div>
+
+                <div className="relative mt-2 h-2 rounded-full bg-surface-muted">
+                  <div
+                    className={cn('h-full rounded-full', tone === 'danger' ? 'bg-danger' : tone === 'warning' ? 'bg-warning' : 'bg-success')}
+                    style={{ width: `${Math.min(a.attendancePercentage, 100)}%` }}
+                  />
+                  <div className="absolute -top-1 h-4 w-px bg-fg-subtle" style={{ left: `${THRESHOLD}%` }} title={`${THRESHOLD}% minimum`} />
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="size-4 text-success" />
+                    <span className="text-fg-muted">Present</span>
+                    <span className="ml-auto font-medium tabular-nums">{a.presentHours}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <XCircle className="size-4 text-danger" />
+                    <span className="text-fg-muted">Absent</span>
+                    <span className="ml-auto font-medium tabular-nums">{a.absentHours}</span>
+                  </div>
+                </div>
+                {!a.isLimitExceeded && a.totalHours > 0 && (
+                  <p className="mt-3 text-xs text-fg-subtle">
+                    {allowed === 0 ? 'No more absences allowed at the current pace.' : `You can miss about ${allowed} more hour${allowed === 1 ? '' : 's'} so far.`}
+                  </p>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
-    </div>
+    </>
   );
-};
-
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2rem',
-  },
-  center: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '60vh',
-  },
-  header: {
-    marginBottom: '1rem',
-  },
-  title: {
-    fontSize: '2rem',
-    fontWeight: '800',
-  },
-  subtitle: {
-    color: 'var(--text-secondary)',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-    gap: '1.5rem',
-  },
-  card: {
-    padding: '1.5rem',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1.5rem',
-  },
-  cardHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  courseInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.8rem',
-  },
-  courseName: {
-    fontSize: '1.1rem',
-    fontWeight: '700',
-  },
-  statusBadge: {
-    padding: '0.3rem 0.8rem',
-    borderRadius: '100px',
-    fontSize: '0.7rem',
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  statsRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    textAlign: 'center',
-  },
-  statBox: {
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: '0.7rem',
-    color: 'var(--text-dim)',
-    textTransform: 'uppercase',
-    marginBottom: '0.3rem',
-    fontWeight: '600',
-  },
-  statValue: {
-    fontSize: '1.2rem',
-    fontWeight: '800',
-  },
-  progressBarBg: {
-    height: '6px',
-    background: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: '3px',
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    transition: 'width 0.4s ease',
-  },
-  emptyState: {
-    textAlign: 'center',
-    padding: '5rem',
-    color: 'var(--text-dim)',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '1rem',
-  }
 };
 
 export default AttendancePage;
