@@ -10,3 +10,4 @@ export { default as ThemeToggle } from './ThemeToggle';
 export { default as ToastProvider } from './ToastProvider';
 export { useToast } from './toast-context';
 export { default as ConfirmDialog } from './ConfirmDialog';
+export { default as Tabs } from './Tabs';

@@ -103,7 +103,27 @@ const AcademicianService = {
   postAnnouncement: async (courseId, data) => {
     const response = await api.post(`/academician/courses/${courseId}/announcements`, data);
     return response.data;
-  }
+  },
+
+  getCourseAnalytics: async (courseId) => {
+    const response = await api.get(`/academician/courses/${courseId}/analytics`);
+    return response.data;
+  },
+
+  exportCourseGrades: async (courseId) => {
+    const response = await api.get(`/academician/courses/${courseId}/export-grades`, { responseType: 'text' });
+    return response.data;
+  },
+
+  messageAdvisee: async (studentId, content) => {
+    const response = await api.post(`/academician/advisees/${studentId}/message`, { content });
+    return response.data;
+  },
+
+  exportAdvisees: async () => {
+    const response = await api.get('/academician/advisees/export', { responseType: 'text' });
+    return response.data;
+  },
 };
 
 export default AcademicianService;

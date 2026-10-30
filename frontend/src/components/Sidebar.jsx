@@ -12,6 +12,8 @@ const MENUS = {
   ACADEMICIAN: [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/academician' },
     { name: 'My Schedule', icon: Calendar, path: '/academician/schedule' },
+    { name: 'Advising', icon: ClipboardCheck, path: '/academician/advisees' },
+    { name: 'My Students', icon: Users, path: '/academician/students' },
     { name: 'Messages', icon: MessageSquare, path: '/academician/messages' },
     { name: 'To-Do List', icon: CheckSquare, path: '/academician/todo' },
     { name: 'Profile', icon: UserIcon, path: '/academician/profile' },

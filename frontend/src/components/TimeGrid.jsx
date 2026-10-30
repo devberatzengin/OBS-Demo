@@ -12,7 +12,7 @@ const HOUR_PX = 64;
 /**
  * Week timetable. items: [{ id, day: 'MONDAY', start: '09:00', end: '10:50', code, title, lines: [] }]
  */
-export default function TimeGrid({ items, startHour = 8, endHour = 18 }) {
+export default function TimeGrid({ items, startHour = 8, endHour = 18, onSelect }) {
   const minStart = Math.min(startHour * 60, ...items.map((i) => toMinutes(i.start)));
   const maxEnd = Math.max(endHour * 60, ...items.map((i) => toMinutes(i.end)));
   const first = Math.floor(minStart / 60);
@@ -54,8 +54,13 @@ export default function TimeGrid({ items, startHour = 8, endHour = 18 }) {
                 <div
                   key={i.id}
                   style={{ top: top + 2, height }}
-                  className={cn('absolute inset-x-1.5 overflow-hidden rounded-md border-l-[3px] px-2 py-1.5', border, bg)}
+                  className={cn('absolute inset-x-1.5 overflow-hidden rounded-md border-l-[3px] px-2 py-1.5', border, bg,
+                    onSelect && 'cursor-pointer transition-[filter] hover:brightness-95 dark:hover:brightness-125')}
                   title={`${i.code} ${i.title}`}
+                  onClick={onSelect ? () => onSelect(i) : undefined}
+                  role={onSelect ? 'button' : undefined}
+                  tabIndex={onSelect ? 0 : undefined}
+                  onKeyDown={onSelect ? (e) => e.key === 'Enter' && onSelect(i) : undefined}
                 >
                   <p className={cn('text-xs font-semibold', text)}>{i.code}</p>
                   <p className="truncate text-xs font-medium text-fg">{i.title}</p>
