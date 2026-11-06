@@ -92,18 +92,18 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 ### Faz 0: Zemin
 
 **0.1 Test izolasyonu**
-- [ ] `build.gradle`: `org.testcontainers:postgresql`, `org.testcontainers:junit-jupiter`, `spring-boot-testcontainers`
-- [ ] `AbstractIntegrationTest`: singleton PostgreSQL container, `@ServiceConnection`, `@ActiveProfiles("test")`
-- [ ] `application-test.properties` (şimdilik `ddl-auto=create-drop`, `spring.sql.init.mode=never`)
-- [ ] Dört entegrasyon test sınıfı base'i extend etsin; `DatabaseSeederTest`'i kaldır
+- [x] `build.gradle`: `org.testcontainers:postgresql`, `org.testcontainers:junit-jupiter`, `spring-boot-testcontainers`
+- [x] `AbstractIntegrationTest`: singleton PostgreSQL container, `@ServiceConnection`, `@ActiveProfiles("test")`
+- [x] `application-test.properties` (şimdilik `ddl-auto=create-drop`, `spring.sql.init.mode=never`)
+- [x] Dört entegrasyon test sınıfı base'i extend etsin; `DatabaseSeederTest`'i kaldır
 - Bitti: `./gradlew test` yerel DB kapalıyken geçiyor; dev verisi yerinde.
 
 **0.2 Flyway ve profiller**
-- [ ] `flyway-core` + `flyway-database-postgresql`
-- [ ] Mevcut şemayı `pg_dump --schema-only` ile çıkar → `db/migration/V1__baseline.sql`
-- [ ] `ddl-auto=validate` (test profili de Flyway ile)
-- [ ] Ayarları böl: `application.properties` (ortak), `application-dev.properties`, `application-test.properties`
-- [ ] `data.sql` → `db/dev/R__dev_seed.sql`; sadece dev profilinde `spring.flyway.locations`'a eklenir
+- [x] `flyway-core` + `flyway-database-postgresql`
+- [x] Mevcut şemayı `pg_dump --schema-only` ile çıkar → `db/migration/V1__baseline.sql`
+- [x] `ddl-auto=validate` (test profili de Flyway ile)
+- [x] Ayarları böl: `application.properties` (ortak), `application-dev.properties`, `application-test.properties`
+- [x] `data.sql` → `db/dev/R__dev_seed.sql`; sadece dev profilinde `spring.flyway.locations`'a eklenir
 - Bitti: iki kez başlatınca veri kalıyor; validate hatasız; seed sadece dev'de.
 
 **0.3 Sırlar ve gereksiz parçalar**

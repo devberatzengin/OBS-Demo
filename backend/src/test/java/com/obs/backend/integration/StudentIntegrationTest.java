@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 // These tests read the dev seed (student 2024001, CSE201/CSE999/MAT101), loaded fresh before each test.
-@Sql(scripts = {"/sql/reset.sql", "/data.sql"}, config = @SqlConfig(encoding = "UTF-8"))
+@Sql(scripts = "/db/dev/R__dev_seed.sql", config = @SqlConfig(encoding = "UTF-8"))
 public class StudentIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired

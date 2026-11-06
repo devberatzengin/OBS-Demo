@@ -1,23 +1,16 @@
 -- ======================================================
--- OBS MEGA TEST DATA SEEDER (V5 - ENTITY & NOT-NULL ALIGNED)
+-- OBS DEV SEED (Flyway repeatable migration, sadece dev profilinde)
+-- Tüm hesapların şifresi: password123
 -- ======================================================
 
--- 1. TEMİZLİK
-DELETE FROM chat_messages;
-DELETE FROM todo_items;
-DELETE FROM attendance_records;
-DELETE FROM enrollments;
-DELETE FROM schedules;
-DELETE FROM exams;
-DELETE FROM classrooms;
-DELETE FROM courses;
-DELETE FROM semesters;
-DELETE FROM students;
-DELETE FROM academicians;
-DELETE FROM administratives;
-DELETE FROM users;
-DELETE FROM departments;
-DELETE FROM faculties;
+-- 1. TEMİZLİK: tüm uygulama tablolarını boşalt (dosya her değiştiğinde Flyway bunu yeniden çalıştırır)
+TRUNCATE TABLE
+    attendance_records, grades, enrollments, exams, schedules, announcements,
+    office_hours, notifications, chat_messages, todo_items, system_logs,
+    courses, classrooms, semesters,
+    students, academicians, administratives, users,
+    departments, faculties
+RESTART IDENTITY CASCADE;
 
 -- 2. KURUMSAL YAPI
 INSERT INTO faculties (name) VALUES ('Mühendislik Fakültesi');
