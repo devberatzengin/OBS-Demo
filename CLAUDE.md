@@ -9,10 +9,12 @@ Geliştirici: Berat (macOS, JetBrains Rider). Konuşma dili Türkçe; kod, commi
   - Katmanlar: `controller` → `service` (interface) → `service/impl` → `repository`; `dto/`, `model/`, `exception/` (`ObsException` + `ErrorCode` + `GlobalExceptionHandler`)
   - Roller: `STUDENT`, `ACADEMICIAN`, `ADMINISTRATIVE` (personel), `ADMIN`. Kullanıcı kalıtımı `JOINED` (users + students/academicians/administratives)
 - `frontend/`: React 19 + Vite 8 + Tailwind v4, ortak bileşenler `src/components/ui`, API çağrıları `src/services`
-- `docker-compose.yml`: sadece PostgreSQL (port 55050)
+- `docker-compose.yml`: sadece PostgreSQL (port 55050), kimlik bilgileri `.env`'den
+- Şema: Flyway (`backend/src/main/resources/db/migration`), Hibernate sadece `validate`; dev seed `db/dev/R__dev_seed.sql` (sadece `dev` profili, varsayılan profil)
 
 ## Komutlar
 
+- İlk kurulum: `cp .env.example .env` ve `OBS_JWT_SECRET` (32+ karakter, `openssl rand -base64 48`) ile `OBS_DB_PASSWORD`'ı doldur. Uygulama secret olmadan açılmaz.
 - Veritabanı: `docker compose up -d db`
 - Backend test: `cd backend && ./gradlew test` (Testcontainers eklendikten sonra Docker Desktop açık olmalı)
 - Backend çalıştır: `cd backend && ./gradlew bootRun`

@@ -107,11 +107,11 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Bitti: iki kez başlatınca veri kalıyor; validate hatasız; seed sadece dev'de.
 
 **0.3 Sırlar ve gereksiz parçalar**
-- [ ] JWT secret, DB URL/kullanıcı/şifre env'den (`OBS_JWT_SECRET`, `OBS_DB_URL`, `OBS_DB_USER`, `OBS_DB_PASSWORD`); varsayılan yok
-- [ ] Secret 32 byte'tan kısaysa uygulama açılmasın
-- [ ] `.env.example` + Rider run configuration notu; `.env` `.gitignore`'da
-- [ ] Kaldır: `/h2-console` izni, frameOptions disable, H2 bağımlılığı, iki `@CrossOrigin("*")`, `DiagnosticTask`
-- [ ] CORS origin property'den (`obs.cors.allowed-origins`)
+- [x] JWT secret, DB URL/kullanıcı/şifre env'den (`OBS_JWT_SECRET`, `OBS_DB_URL`, `OBS_DB_USER`, `OBS_DB_PASSWORD`); varsayılan yok
+- [x] Secret 32 byte'tan kısaysa uygulama açılmasın
+- [x] `.env.example` + Rider run configuration notu; `.env` `.gitignore`'da
+- [x] Kaldır: `/h2-console` izni, frameOptions disable, H2 bağımlılığı, iki `@CrossOrigin("*")`, `DiagnosticTask`
+- [x] CORS origin property'den (`obs.cors.allowed-origins`)
 - Bitti: repoda şifre yok; secret yoksa uygulama açılmıyor.
 
 **0.4 Hata yönetimi ve loglama**
