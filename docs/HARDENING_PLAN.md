@@ -123,8 +123,8 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 ### Faz 1: Güvenlik açıkları
 
 **1.1 Yetki test altyapısı**
-- [ ] `TestDataFactory`: fakülte, bölüm, dönem, ders, öğrenci, hoca, kayıt builder'ları
-- [ ] `AuthHelper`: `asStudent(s)`, `asAcademician(a)`, `asStaff()`, `asAdmin()`; gerçek `JwtUtils` ile token
+- [x] `TestDataFactory`: fakülte, bölüm, dönem, ders, öğrenci, hoca, kayıt builder'ları
+- [x] `AuthHelper`: `as(user)` ile gerçek `JwtUtils` token'ı (rol ayrımı kullanıcının kendisinden gelir)
 - [ ] Mevcut testlerdeki tekrar eden kurulumu bu yardımcılara taşı
 - Bitti: yeni yetki testi 5–10 satır.
 
