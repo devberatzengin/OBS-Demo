@@ -129,8 +129,8 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Bitti: yeni yetki testi 5–10 satır.
 
 **1.2 To-do sahipliği (IDOR)**
-- [ ] `TodoItemRepository.findByIdAndUserId`
-- [ ] update/delete/toggle bunu kullansın; bulunamazsa 404
+- [x] `TodoItemRepository.findByIdAndUserId`
+- [x] update/delete/toggle bunu kullansın; bulunamazsa 404
 - Test: B, A'nın to-do'suna PUT/DELETE/PATCH → 404, kayıt değişmemiş.
 
 **1.3 Admin ve personel ayrımı** (K3, K4)

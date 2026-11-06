@@ -54,9 +54,8 @@ public class TodoServiceImpl implements TodoService {
     }
 
     @Override
-    public TodoDTO updateTodo(Long id, TodoDTO todoDTO) {
-        TodoItem item = todoItemRepository.findById(id)
-                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Todo item not found"));
+    public TodoDTO updateTodo(String username, Long id, TodoDTO todoDTO) {
+        TodoItem item = findOwnedItem(username, id);
 
         item.setTitle(todoDTO.getTitle());
         item.setDescription(todoDTO.getDescription());
@@ -72,16 +71,24 @@ public class TodoServiceImpl implements TodoService {
     }
 
     @Override
-    public void deleteTodo(Long id) {
-        todoItemRepository.deleteById(id);
+    public void deleteTodo(String username, Long id) {
+        todoItemRepository.delete(findOwnedItem(username, id));
     }
 
     @Override
-    public void toggleTodo(Long id) {
-        TodoItem item = todoItemRepository.findById(id)
-                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Todo item not found"));
+    public void toggleTodo(String username, Long id) {
+        TodoItem item = findOwnedItem(username, id);
         item.setCompleted(!item.isCompleted());
         todoItemRepository.saveAndFlush(item);
+    }
+
+    /**
+     * Loads an item only if it belongs to the caller. Someone else's item is reported as
+     * not found, so ids cannot be probed for existence.
+     */
+    private TodoItem findOwnedItem(String username, Long id) {
+        return todoItemRepository.findByIdAndUserUsername(id, username)
+                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Todo item not found"));
     }
 
     private TodoDTO mapToDTO(TodoItem item) {
