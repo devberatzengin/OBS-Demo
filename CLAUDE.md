@@ -24,11 +24,11 @@ Geliştirici: Berat (macOS, JetBrains Rider). Konuşma dili Türkçe; kod, commi
 
 `admin` (Admin) · `personel01` (Staff) · `hocam01` (Academician) · `2024001` (Student)
 
-## Mevcut durum (31 Ekim 2026)
+## Mevcut durum (6 Kasım 2026)
 
-- Aktif branch `frontend-modernize`: frontend baştan tasarlandı, 4 commit, merge edilmedi.
-- Commit edilmemiş yerel değişiklikler (Berat'ın): `backend/build.gradle` (Lombok satırları), `application.properties` (`ddl-auto=create`, `sql.init.mode=always`), takip edilmeyen `backend/src/main/resources/data.sql` (seed), silinmiş `test_data_seeder.sql`.
-- Sistem analizi ve sıralı iş planı: `docs/HARDENING_PLAN.md`. İşler oradaki alt faz numaralarıyla (0.1, 1.2 …) yürür.
+- Aktif branch `hardening` (`frontend-modernize` üzerine): plan alt fazları 0.1–0.4, 1.1, 1.2 tamam, her biri ayrı commit. Push ve merge edilmedi.
+- Bu kod derlenmeden yazıldı (oturumda Maven erişimi yoktu); ilk iş `./gradlew test` çalıştırıp sonucu doğrulamak. Notlar: `docs/HARDENING_PLAN.md` sonu.
+- Sıradaki: 1.3–1.6 (K3, K4 kararları gerekli), sonra Faz 2 (K1, K2, K5).
 
 ## Çalışma kuralları
 

@@ -261,4 +261,10 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 
 ## Yol üstünde eklenen notlar
 
-_(boş)_
+**1. oturum (6 Kasım 2026)**: 0.1–0.4, 1.1, 1.2 `hardening` branch'inde, alt faz başına bir commit.
+- Bu oturumdan Maven/Gradle'a erişilemediği için kod derlenmeden yazıldı; `./gradlew test` ilk kez Mac'te çalıştırılacak. Java dışı her şey doğrulandı: V1 şeması ve dev seed PostgreSQL 16'da çalıştı, entity alanları ile V1 kolonları otomatik karşılaştırmada birebir eşleşti (20 tablo, 0 fark), değişen dosyalarda sözdizimi hatası yok.
+- 1.1'deki "mevcut testlerin kurulumunu yardımcılara taşı" maddesi bilerek ertelendi: derlemeden büyük test refactor'ü riskli. Yeni testler yardımcıları kullanıyor.
+- 1.2'de sorgu `findByIdAndUserId` yerine `findByIdAndUserUsername` oldu (fazladan kullanıcı sorgusu gerekmiyor).
+- 0.4'e plan dışı küçük ek: yanlış HTTP metodu artık 500 yerine 405.
+- `ErrorCode.ALREADY_EXISTS` hâlâ 400 dönüyor; 409'a çekmek frontend mesajlarını etkileyebileceği için Faz 3.4'e bırakıldı.
+- Kökteki `seed.sql` eski ve kullanılmıyor (şema ile uyumsuz kolonlar içeriyor olabilir); silinmesi önerilir.
