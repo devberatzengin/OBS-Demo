@@ -16,4 +16,6 @@ public class ErrorResponse {
     private String errorName;
     private String description;
     private LocalDateTime timestamp;
+    /** Set for unexpected errors so a user report can be matched to the server log. */
+    private String traceId;
 }

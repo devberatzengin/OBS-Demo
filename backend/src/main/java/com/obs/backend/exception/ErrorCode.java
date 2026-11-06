@@ -10,7 +10,9 @@ public enum ErrorCode {
     AUTHENTICATION_FAILED("OBS-003", "Authentication Failed"),
     ACCESS_DENIED("OBS-004", "Access Denied"),
     BAD_REQUEST("OBS-005", "Bad Request"),
-    ALREADY_EXISTS("OBS-006", "Resource Already Exists");
+    ALREADY_EXISTS("OBS-006", "Resource Already Exists"),
+    CONFLICT("OBS-007", "Conflict"),
+    METHOD_NOT_ALLOWED("OBS-008", "Method Not Allowed");
 
     private final String code;
     private final String name;

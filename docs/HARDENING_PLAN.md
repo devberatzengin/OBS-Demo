@@ -115,9 +115,9 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Bitti: repoda şifre yok; secret yoksa uygulama açılmıyor.
 
 **0.4 Hata yönetimi ve loglama**
-- [ ] Genel handler: "Beklenmeyen bir hata oluştu" + `traceId`; stack trace log'a
-- [ ] `DataIntegrityViolationException` → 409; `HttpMessageNotReadableException`, `MethodArgumentTypeMismatchException` → 400; `NoResourceFoundException` → 404
-- [ ] SLF4J: `ObsException` WARN, diğerleri ERROR; `show-sql` sadece dev
+- [x] Genel handler: "Beklenmeyen bir hata oluştu" + `traceId`; stack trace log'a
+- [x] `DataIntegrityViolationException` → 409; `HttpMessageNotReadableException`, `MethodArgumentTypeMismatchException` → 400; `NoResourceFoundException` → 404
+- [x] SLF4J: `ObsException` WARN, diğerleri ERROR; `show-sql` sadece dev
 - Test: 500 yanıtında istisna mesajı yok, `traceId` var.
 
 ### Faz 1: Güvenlik açıkları
