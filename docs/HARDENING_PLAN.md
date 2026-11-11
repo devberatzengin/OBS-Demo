@@ -285,3 +285,15 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - 2.4: Bu dönem zaten kaydolunan (reddedilmemiş) tekrar dersi zorunluluğu karşılıyor. Tek ders kaydı ucu (`register-course/{id}`) hâlâ zorunlu ders kontrolü yapmıyor; iki kayıt yolu 3.1'de birleşecek.
 - 2.5: Ağırlığı değişen sınavda öğrencilerin ara toplam puanı yeniden hesaplanıyor (planda yoktu, ağırlık değişince puanın eskimemesi için eklendi). Boş not listesi göndermek artık 400.
 - Bilinen eksik: yoklama hâlâ `findByCourseIdAndStudentId` kullanıyor; dersi tekrar alan öğrencide iki kayıt olunca belirsiz. 3. fazda ele alınmalı.
+
+**4. oturum (11 Kasım 2026)**: 3.1–3.4 `hardening` branch'inde, alt faz başına bir commit. K7 = DD/DC yükseltmeye izin, K8 = boş/0 kontenjan sınırsız, K9 = kayıt tarihi yoksa açık. Bu kod da derlenmeden yazıldı.
+- 3.1: Kurallar `registration/EnrollmentValidator` içinde sıralı bir zincir; her kuralın kendi hata kodu var (OBS-101…109). Frontend artık seçilen dersleri tek istekte gönderiyor (eskiden ders ders gönderiyordu; biri hata verince yarım kayıt kalıyordu).
+- 3.1: AKTS limiti ve çakışma kontrolü artık bu dönem zaten kayıtlı dersleri de sayıyor. Eskiden tek ders kaydında sadece seçilenler sayılıyordu.
+- 3.2: Danışman bir kaydı reddedince satır siliniyor (eski davranış), bu da kontenjan yerini boşaltıyor. Onaylanmış kayıt artık reddedilemiyor (409); eskiden notlarıyla birlikte siliniyordu.
+- 3.3: Migration numarası planda V2 yazıyordu, V2 not kesinleştirmede kullanıldığı için V3 oldu; `@Version` V4'e kaydı.
+- 3.3: Tek aktif dönem index'i yüzünden dönem aktifleştirmede ara `flush()` gerekti, çünkü Hibernate insert'leri update'lerden önce yazıyor. Aynı düzeltme test fabrikasında da var.
+- 3.3: Planın sonunda not edilen yoklama sorunu (tekrar alınan derste iki kayıt) burada çözüldü: yoklama aktif dönemin kaydını kullanıyor.
+- 3.4: "Harf notu enum" yapılmadı. Yerine V4'te `enrollments.grade` için check constraint var. Enum'a geçmek not hesabındaki tüm sınıfları değiştirirdi; aynı garantiyi veritabanı veriyor.
+- 3.4: `@Valid` gövde doğrulaması `@PreAuthorize`'dan önce çalıştığı için, rolü olmayan biri geçersiz gövdeyle 403 yerine 400 alıyordu. Rol kuralları `SecurityConfig`'e de eklendi (filtre seviyesi); controller'lardaki `@PreAuthorize` ikinci kontrol olarak duruyor.
+- 3.4: `ALREADY_EXISTS` artık 409. Frontend durum koduna göre dallanmadığı için mesajlar etkilenmedi.
+- Bilinen eksik: aynı öğrencinin iki sekmeden eşzamanlı kaydı AKTS limitini aşabilir (kilit ders satırında, öğrenci satırında değil). Gerekirse 4. fazda öğrenci satırı da kilitlenir.

@@ -26,9 +26,9 @@ Geliştirici: Berat (macOS, JetBrains Rider). Konuşma dili Türkçe; kod, commi
 
 ## Mevcut durum (11 Kasım 2026)
 
-- Aktif branch `hardening` (`frontend-modernize` üzerine): Faz 0, 1 ve 2 tamam (0.1–2.5), her alt faz ayrı commit. Push ve merge edilmedi.
+- Aktif branch `hardening` (`frontend-modernize` üzerine): Faz 0–3 tamam (0.1–3.4), her alt faz ayrı commit. Push ve merge edilmedi.
 - Bu kod derlenmeden yazıldı (oturumlarda Maven erişimi yoktu); ilk iş `./gradlew test` çalıştırıp sonucu doğrulamak. Notlar: `docs/HARDENING_PLAN.md` sonu.
-- Kararlar: K1 = hoca kesinleştirince, K2 = kesinleşince hesapla/sakla, K3 = (b), K4 = (b), K5 = son not, sadece FF. Sıradaki: Faz 3 (K6 kararı Faz 5.3 için gerekli).
+- Kararlar K1–K5 ve K7–K9 verildi (plan dokümanındaki tablo). Sıradaki: Faz 4 (yetki matrisi ve performans); K6 kararı Faz 5.3 için gerekli.
 
 ## Çalışma kuralları
 
