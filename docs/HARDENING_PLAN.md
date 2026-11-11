@@ -179,8 +179,8 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Test: dashboard GPA = transkript GNO.
 
 **2.4 Zorunlu tekrar kuralı**
-- [ ] Sadece kesinleşmiş, geçmiş dönem başarısız notları
-- [ ] Sonra geçilen ders listeden düşer
+- [x] Sadece kesinleşmiş, geçmiş dönem başarısız notları
+- [x] Sonra geçilen ders listeden düşer
 - Test: aktif dönem FF zorunlu değil; geçen dönem FF zorunlu; sonra geçilmişse değil.
 
 **2.5 Sınav kuralları**

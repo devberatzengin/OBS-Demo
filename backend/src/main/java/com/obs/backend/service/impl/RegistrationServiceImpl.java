@@ -4,14 +4,21 @@ import com.obs.backend.dto.registration.RegistrationRequest;
 import com.obs.backend.dto.student.CourseDTO;
 import com.obs.backend.exception.ErrorCode;
 import com.obs.backend.exception.ObsException;
+import com.obs.backend.grading.CourseAttempt;
+import com.obs.backend.grading.GpaCalculator;
+import com.obs.backend.grading.GradingPolicy;
 import com.obs.backend.model.*;
+import com.obs.backend.model.enums.EnrollmentStatus;
 import com.obs.backend.repository.*;
 import com.obs.backend.service.RegistrationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,6 +30,8 @@ public class RegistrationServiceImpl implements RegistrationService {
     private final SemesterRepository semesterRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final ScheduleRepository scheduleRepository;
+    private final GpaCalculator gpaCalculator;
+    private final GradingPolicy gradingPolicy;
 
     @Override
     public List<CourseDTO> getAvailableCourses(String username) {
@@ -35,12 +44,7 @@ public class RegistrationServiceImpl implements RegistrationService {
         java.util.Map<Long, String> enrolledCourseStatusMap = enrollmentRepository.findByStudentIdAndSemesterId(student.getId(), activeSemester.getId())
                 .stream().collect(Collectors.toMap(e -> e.getCourse().getId(), e -> e.getStatus().name()));
 
-        // Get failed course IDs from ANY previous semester
-        java.util.Set<Long> failedCourseIds = enrollmentRepository.findByStudentId(student.getId())
-                .stream()
-                .filter(e -> "FF".equals(e.getGrade()))
-                .map(e -> e.getCourse().getId())
-                .collect(java.util.stream.Collectors.toSet());
+        Set<Long> failedCourseIds = mandatoryRetakes(student, activeSemester).keySet();
 
         // Get courses from student's department
         return courseRepository.findByDepartmentId(student.getDepartment().getId())
@@ -72,7 +76,7 @@ public class RegistrationServiceImpl implements RegistrationService {
         List<Course> selectedCourses = courseRepository.findAllById(courseIds);
 
         // 1. Mandatory Check: Alttan kalan dersler (FF) kontrolü
-        validateMandatoryCourses(student, selectedCourses);
+        validateMandatoryCourses(student, activeSemester, selectedCourses);
 
         // 2. AKTS Limit Check (30 AKTS)
         validateAktsLimit(selectedCourses);
@@ -90,20 +94,55 @@ public class RegistrationServiceImpl implements RegistrationService {
         }
     }
 
-    private void validateMandatoryCourses(Student student, List<Course> selectedCourses) {
-        List<Enrollment> failedEnrollments = enrollmentRepository.findByStudentId(student.getId())
+    /**
+     * Plan 2.4: a course must be re-taken when the latest finalized, approved attempt from an
+     * earlier semester is failing (decision K5: the last grade counts; only FF fails). A later
+     * pass removes it; grades of the active semester never make a course mandatory.
+     */
+    private Map<Long, Course> mandatoryRetakes(Student student, Semester activeSemester) {
+        List<Enrollment> earlier = enrollmentRepository.findByStudentIdAndStatus(student.getId(), EnrollmentStatus.APPROVED)
                 .stream()
-                .filter(e -> "FF".equals(e.getGrade()))
+                .filter(e -> e.getCourse() != null && isEarlierThan(e.getSemester(), activeSemester))
                 .collect(Collectors.toList());
 
-        for (Enrollment failed : failedEnrollments) {
-            boolean isReSelected = selectedCourses.stream()
-                    .anyMatch(c -> c.getId().equals(failed.getCourse().getId()));
-            
-            if (!isReSelected) {
-                throw new ObsException(ErrorCode.BAD_REQUEST, 
-                    "You must select failed course color-coded as mandatory: " + failed.getCourse().getCode());
+        Map<Long, Course> coursesById = new LinkedHashMap<>();
+        earlier.forEach(e -> coursesById.putIfAbsent(e.getCourse().getId(), e.getCourse()));
+
+        Map<Long, Course> mandatory = new LinkedHashMap<>();
+        for (CourseAttempt latest : gpaCalculator.latestPerCourse(gpaCalculator.countedAttempts(earlier))) {
+            if (gradingPolicy.isFailing(latest.letter())) {
+                mandatory.put(latest.courseId(), coursesById.get(latest.courseId()));
             }
+        }
+        return mandatory;
+    }
+
+    private static boolean isEarlierThan(Semester semester, Semester activeSemester) {
+        if (semester == null || semester.getId().equals(activeSemester.getId())) {
+            return false;
+        }
+        // A semester that starts after the active one is not history yet
+        return semester.getStartDate() == null || activeSemester.getStartDate() == null
+                || semester.getStartDate().isBefore(activeSemester.getStartDate());
+    }
+
+    private void validateMandatoryCourses(Student student, Semester activeSemester, List<Course> selectedCourses) {
+        Set<Long> covered = enrollmentRepository.findByStudentIdAndSemesterId(student.getId(), activeSemester.getId())
+                .stream()
+                .filter(e -> e.getStatus() != EnrollmentStatus.REJECTED)
+                .map(e -> e.getCourse().getId())
+                .collect(Collectors.toCollection(java.util.HashSet::new));
+        selectedCourses.forEach(c -> covered.add(c.getId()));
+
+        List<String> missing = mandatoryRetakes(student, activeSemester).entrySet().stream()
+                .filter(entry -> !covered.contains(entry.getKey()))
+                .map(entry -> entry.getValue().getCode())
+                .sorted()
+                .collect(Collectors.toList());
+
+        if (!missing.isEmpty()) {
+            throw new ObsException(ErrorCode.BAD_REQUEST,
+                    "Failed courses must be re-taken: " + String.join(", ", missing));
         }
     }
 
