@@ -152,8 +152,8 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Test: başka hocanın dersi 403; başkasının mesajı 404.
 
 **1.6 Login rate limit**
-- [ ] Bucket4j: IP + kullanıcı adı başına 5/dk → 429 + `Retry-After`
-- [ ] Başarılı giriş kullanıcı kovasını sıfırlar; frontend 429 mesajı
+- [x] Bucket4j: IP + kullanıcı adı başına 5/dk → 429 + `Retry-After`
+- [x] Başarılı giriş kullanıcı kovasını sıfırlar; frontend 429 mesajı
 - Test: 6. hatalı deneme 429.
 
 ### Faz 2: Not ve GPA doğruluğu (K1, K2, K5 gerekli)

@@ -52,8 +52,13 @@ const LoginPage = () => {
 
       login(data, data.token);
       navigate(ROLE_HOME[data.role] ?? '/student');
-    } catch {
-      setError('Invalid username or password.');
+    } catch (err) {
+      if (err.response?.status === 429) {
+        const wait = err.response.headers?.['retry-after'];
+        setError(`Too many sign-in attempts. Try again in ${wait ?? 'a few'} seconds.`);
+      } else {
+        setError('Invalid username or password.');
+      }
     } finally {
       setLoading(false);
     }

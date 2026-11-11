@@ -12,7 +12,8 @@ public enum ErrorCode {
     BAD_REQUEST("OBS-005", "Bad Request"),
     ALREADY_EXISTS("OBS-006", "Resource Already Exists"),
     CONFLICT("OBS-007", "Conflict"),
-    METHOD_NOT_ALLOWED("OBS-008", "Method Not Allowed");
+    METHOD_NOT_ALLOWED("OBS-008", "Method Not Allowed"),
+    TOO_MANY_REQUESTS("OBS-009", "Too Many Requests");
 
     private final String code;
     private final String name;
