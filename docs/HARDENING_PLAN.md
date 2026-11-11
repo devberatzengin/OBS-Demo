@@ -76,8 +76,8 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 | --- | --- | --- | --- | --- |
 | K1 | Harf notu ne zaman atanır? | (a) tüm sınavlar girilince otomatik (b) hoca "notları kesinleştir" der | (b) | |
 | K2 | GPA saklansın mı? | (a) her istekte hesapla (b) kesinleşince hesaplayıp `Student.gpa`'ya yaz | (b), tek hesap servisi | |
-| K3 | Personel neleri yapabilir? | (a) admin ile aynı (b) öğrenci/akademisyen hesabı açar-günceller; admin/personel hesaplarına dokunamaz, kimseyi silemez (c) kullanıcı yönetimi tamamen admin'de | (b) | |
-| K4 | Kullanıcı silme | (a) kalıcı (b) pasife alma | (b) | |
+| K3 | Personel neleri yapabilir? | (a) admin ile aynı (b) öğrenci/akademisyen hesabı açar-günceller; admin/personel hesaplarına dokunamaz, kimseyi silemez (c) kullanıcı yönetimi tamamen admin'de | (b) | (b) — 11 Kasım |
+| K4 | Kullanıcı silme | (a) kalıcı (b) pasife alma | (b) | (b) — 11 Kasım |
 | K5 | Tekrar alınan derste hangi not, hangi harfler başarısız? | son / en yüksek; FF veya FF+FD | son not; harfler üniversite yönetmeliğine göre | |
 | K6 | Akademisyen "New course" formu | (a) öneri ucu + admin onayı (b) formu kaldır | (b) | |
 
@@ -134,10 +134,10 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Test: B, A'nın to-do'suna PUT/DELETE/PATCH → 404, kayıt değişmemiş.
 
 **1.3 Admin ve personel ayrımı** (K3, K4)
-- [ ] Kullanıcı uçlarında metot bazında `@PreAuthorize`
-- [ ] Personel admin/personel hesabı açamaz, güncelleyemez, şifresini değiştiremez
-- [ ] Silme sadece ADMIN; soft delete; kendini ve ADMIN'i pasife alamaz
-- [ ] Listeler aktif kullanıcıları göstersin; frontend "Delete" → "Deactivate"
+- [x] Kullanıcı uçlarında metot bazında `@PreAuthorize`
+- [x] Personel admin/personel hesabı açamaz, güncelleyemez, şifresini değiştiremez
+- [x] Silme sadece ADMIN; soft delete; kendini ve ADMIN'i pasife alamaz
+- [x] Listeler aktif kullanıcıları göstersin; frontend "Delete" → "Deactivate"
 - Test: personel × kullanıcı uçları matrisi; admin kendini silemez (400).
 
 **1.4 Pasif kullanıcı ve token**

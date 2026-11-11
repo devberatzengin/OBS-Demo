@@ -65,7 +65,10 @@ public interface AdminService {
     void updateStudent(Long id, AdminStudentRegisterRequest request);
     void updateAcademician(Long id, AdminAcademicianRegisterRequest request);
     void updateAdministrative(Long id, AdminAdministrativeRegisterRequest request);
-    void deleteUser(Long id);
+    /** Soft delete: sets the account inactive. Admin accounts and the caller's own account are refused. */
+    void deactivateUser(Long id, String actorUsername);
+
+    void reactivateUser(Long id);
 
     // Profile Operations
     AdminProfileDTO getAdminProfile(String username);

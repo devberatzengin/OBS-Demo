@@ -89,8 +89,13 @@ const AdministrativeService = {
     const response = await api.put(`/admin/users/administrative/${id}`, data);
     return response.data;
   },
+  // Soft delete on the backend: the account is deactivated, its history kept
   deleteUser: async (id) => {
     const response = await api.delete(`/admin/users/${id}`);
+    return response.data;
+  },
+  reactivateUser: async (id) => {
+    const response = await api.patch(`/admin/users/${id}/reactivate`);
     return response.data;
   },
 

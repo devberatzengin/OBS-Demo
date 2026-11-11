@@ -18,4 +18,10 @@ public class AdminAdministrativeRegisterRequest {
     private String lastName;
     private String staffNumber;
     private String position;
+
+    /** Read-only in responses: whether the account can sign in. Ignored on create/update. */
+    private Boolean active;
+
+    /** Read-only in responses: ADMIN or ADMINISTRATIVE. */
+    private String role;
 }

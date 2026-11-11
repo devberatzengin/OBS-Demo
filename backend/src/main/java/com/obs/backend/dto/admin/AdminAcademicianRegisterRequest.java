@@ -20,4 +20,7 @@ public class AdminAcademicianRegisterRequest {
     private String academicTitle;
     private Long departmentId;
     private String officeNumber;
+
+    /** Read-only in responses: whether the account can sign in. Ignored on create/update. */
+    private Boolean active;
 }

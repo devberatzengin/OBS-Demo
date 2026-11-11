@@ -14,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin/users")
 @RequiredArgsConstructor
+// Staff (ADMINISTRATIVE) manage students and academicians; staff/admin accounts and deactivation are ADMIN-only.
 @PreAuthorize("hasAnyRole('ADMIN', 'ADMINISTRATIVE')")
 public class AdminUserController {
 
@@ -32,6 +33,7 @@ public class AdminUserController {
     }
 
     @PostMapping("/administrative")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> registerAdministrative(@RequestBody com.obs.backend.dto.admin.AdminAdministrativeRegisterRequest request) {
         adminService.registerAdministrative(request);
         return ResponseEntity.ok("Administrative staff registered successfully");
@@ -71,15 +73,25 @@ public class AdminUserController {
     }
 
     @PutMapping("/administrative/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> updateAdministrative(@PathVariable Long id, @RequestBody com.obs.backend.dto.admin.AdminAdministrativeRegisterRequest request) {
         adminService.updateAdministrative(id, request);
         return ResponseEntity.ok("Staff updated successfully");
     }
 
+    /** Deactivates the account (soft delete): the user can no longer sign in, history is kept. */
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteUser(@PathVariable Long id) {
-        adminService.deleteUser(id);
-        return ResponseEntity.ok("User deleted successfully");
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> deactivateUser(@PathVariable Long id, java.security.Principal principal) {
+        adminService.deactivateUser(id, principal.getName());
+        return ResponseEntity.ok("User deactivated successfully");
+    }
+
+    @PatchMapping("/{id}/reactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> reactivateUser(@PathVariable Long id) {
+        adminService.reactivateUser(id);
+        return ResponseEntity.ok("User reactivated successfully");
     }
 
     @GetMapping("/profile")

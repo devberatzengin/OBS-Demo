@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  GraduationCap, School, Shield, BookOpen, Plus, Search, Pencil, Trash2, Building2, Layers, Activity,
+  GraduationCap, School, Shield, BookOpen, Plus, Search, Pencil, Trash2, Building2, Layers, Activity, UserX, RotateCcw,
   UserPlus, Megaphone, CalendarDays,
 } from 'lucide-react';
 import AdministrativeService from '../services/AdministrativeService';
+import { useAuth } from '../context/AuthContext';
 import BroadcastModal from '../components/BroadcastModal';
 import {
   Alert, Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, Field, Input, Modal, PageHeader, Select,
@@ -46,6 +47,7 @@ const AdminPortal = () => {
   const location = useLocation();
   const section = sectionFromPath(location.pathname);
   const toast = useToast();
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
@@ -156,13 +158,23 @@ const AdminPortal = () => {
     try {
       if (toDelete.type === 'user') await AdministrativeService.deleteUser(toDelete.item.id);
       else await AdministrativeService.deleteCourse(toDelete.item.id);
-      toast.success(`${toDelete.type === 'user' ? 'User' : 'Course'} deleted`);
+      toast.success(toDelete.type === 'user' ? 'User deactivated' : 'Course deleted');
       setToDelete(null);
       load();
     } catch (err) {
-      toast.error('Delete failed', apiError(err));
+      toast.error(toDelete.type === 'user' ? 'Could not deactivate user' : 'Delete failed', apiError(err));
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const reactivate = async (u) => {
+    try {
+      await AdministrativeService.reactivateUser(u.id);
+      toast.success('User reactivated', `${fullName(u)} can sign in again.`);
+      load();
+    } catch (err) {
+      toast.error('Could not reactivate user', apiError(err));
     }
   };
 
@@ -267,7 +279,11 @@ const AdminPortal = () => {
                             {u.firstName?.[0]}{u.lastName?.[0]}
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate font-medium">{role === 'ACADEMICIAN' && u.academicTitle ? `${u.academicTitle} ` : ''}{fullName(u)}</p>
+                            <p className="flex items-center gap-2 truncate font-medium">
+                              {role === 'ACADEMICIAN' && u.academicTitle ? `${u.academicTitle} ` : ''}{fullName(u)}
+                              {u.role === 'ADMIN' && <Badge tone="accent">Admin</Badge>}
+                              {u.active === false && <Badge tone="warning">Inactive</Badge>}
+                            </p>
                             <p className="truncate text-xs text-fg-subtle">@{u.username}</p>
                           </div>
                         </div>
@@ -277,7 +293,11 @@ const AdminPortal = () => {
                       <TD className="text-fg-muted">{u.email}</TD>
                       <TD className="text-right whitespace-nowrap">
                         <Button size="icon-sm" variant="ghost" aria-label="Edit" onClick={() => openUser(u)}><Pencil className="size-4" /></Button>
-                        <Button size="icon-sm" variant="danger-ghost" aria-label="Delete" onClick={() => setToDelete({ type: 'user', item: u })}><Trash2 className="size-4" /></Button>
+                        {u.active === false ? (
+                          <Button size="icon-sm" variant="ghost" aria-label="Reactivate" title="Reactivate" onClick={() => reactivate(u)}><RotateCcw className="size-4" /></Button>
+                        ) : u.role !== 'ADMIN' && u.id !== user?.id && (
+                          <Button size="icon-sm" variant="danger-ghost" aria-label="Deactivate" title="Deactivate" onClick={() => setToDelete({ type: 'user', item: u })}><UserX className="size-4" /></Button>
+                        )}
                       </TD>
                     </TR>
                   ))}
@@ -442,10 +462,11 @@ const AdminPortal = () => {
         onClose={() => setToDelete(null)}
         onConfirm={remove}
         loading={deleting}
-        title={toDelete?.type === 'course' ? 'Delete course?' : 'Delete user?'}
+        title={toDelete?.type === 'course' ? 'Delete course?' : 'Deactivate user?'}
+        confirmLabel={toDelete?.type === 'course' ? 'Delete' : 'Deactivate'}
         description={toDelete ? (toDelete.type === 'course'
           ? `${toDelete.item.code} · ${toDelete.item.name} will be permanently removed.`
-          : `${fullName(toDelete.item)} (@${toDelete.item.username}) will be permanently removed.`) : ''}
+          : `${fullName(toDelete.item)} (@${toDelete.item.username}) will no longer be able to sign in. Grades, enrollments and messages are kept, and you can reactivate the account later.`) : ''}
       />
 
       <BroadcastModal open={broadcast} onClose={() => setBroadcast(false)} />

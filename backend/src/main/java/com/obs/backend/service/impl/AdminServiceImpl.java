@@ -573,6 +573,7 @@ public class AdminServiceImpl implements AdminService {
                         .studentNumber(s.getStudentNumber())
                         .departmentId(s.getDepartment() != null ? s.getDepartment().getId() : null)
                         .advisorId(s.getAdvisor() != null ? s.getAdvisor().getId() : null)
+                        .active(s.isActive())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -590,6 +591,7 @@ public class AdminServiceImpl implements AdminService {
                         .departmentId(a.getDepartment().getId())
                         .officeNumber(a.getOfficeNumber())
                         .staffNumber(a.getStaffNumber())
+                        .active(a.isActive())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -608,6 +610,8 @@ public class AdminServiceImpl implements AdminService {
                             .lastName(u.getLastName())
                             .staffNumber(adminData != null ? adminData.getStaffNumber() : "N/A")
                             .position(adminData != null ? adminData.getPosition() : (u.getRole() == com.obs.backend.model.enums.Role.ADMIN ? "Root Admin" : "Staff"))
+                            .role(u.getRole().name())
+                            .active(u.isActive())
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -678,11 +682,26 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
-    public void deleteUser(Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "User not found");
+    public void deactivateUser(Long id, String actorUsername) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "User not found"));
+        if (user.getUsername().equals(actorUsername)) {
+            throw new ObsException(ErrorCode.BAD_REQUEST, "You cannot deactivate your own account");
         }
-        userRepository.deleteById(id);
+        if (user.getRole() == Role.ADMIN) {
+            throw new ObsException(ErrorCode.BAD_REQUEST, "Administrator accounts cannot be deactivated");
+        }
+        user.setActive(false);
+        userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public void reactivateUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "User not found"));
+        user.setActive(true);
+        userRepository.save(user);
     }
 
     @Override

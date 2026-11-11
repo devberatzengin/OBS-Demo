@@ -19,4 +19,7 @@ public class AdminStudentRegisterRequest {
     private String studentNumber;
     private Long departmentId;
     private Long advisorId;
+
+    /** Read-only in responses: whether the account can sign in. Ignored on create/update. */
+    private Boolean active;
 }
