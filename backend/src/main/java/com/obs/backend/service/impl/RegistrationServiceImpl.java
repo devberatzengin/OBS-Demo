@@ -87,7 +87,8 @@ public class RegistrationServiceImpl implements RegistrationService {
         }
 
         // Keep the request order and duplicates, so a course sent twice is reported as already registered
-        Map<Long, Course> found = courseRepository.findAllById(new LinkedHashSet<>(courseIds)).stream()
+        // Locked until commit: the quota is counted and the new rows are written under the lock
+        Map<Long, Course> found = courseRepository.findAllByIdForUpdate(new LinkedHashSet<>(courseIds)).stream()
                 .collect(Collectors.toMap(Course::getId, Function.identity()));
         List<Long> unknown = courseIds.stream().filter(id -> !found.containsKey(id)).distinct().toList();
         if (!unknown.isEmpty()) {

@@ -202,9 +202,9 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Test: her kurala bir negatif senaryo; iki yol aynı cevap.
 
 **3.2 Kontenjan ve eşzamanlılık**
-- [ ] Ders satırı `PESSIMISTIC_WRITE`; dolu yer kilit altında sayılır
-- [ ] PENDING de sayılır; red yeri boşaltır
-- [ ] Frontend "12/40" doluluk
+- [x] Ders satırı `PESSIMISTIC_WRITE`; dolu yer kilit altında sayılır
+- [x] PENDING de sayılır; red yeri boşaltır
+- [x] Frontend "12/40" doluluk
 - Test: kontenjan 1, 10 eşzamanlı istek → 1 başarılı, 9 `QUOTA_FULL`.
 
 **3.3 Veritabanı kısıtları (Flyway V2)**

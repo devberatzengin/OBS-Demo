@@ -794,6 +794,11 @@ public class AcademicianServiceImpl implements AcademicianService {
     @Transactional
     public void rejectEnrollment(@lombok.NonNull Long enrollmentId) {
         Enrollment enrollment = getAndVerifyAdviseeEnrollment(enrollmentId);
+        // Only a request can be rejected; deleting an approved enrollment would drop its grades
+        if (enrollment.getStatus() != EnrollmentStatus.PENDING) {
+            throw new ObsException(ErrorCode.CONFLICT, "Only pending registrations can be rejected");
+        }
+        // Deleting the request frees its quota place (plan 3.2)
         enrollmentRepository.delete(enrollment);
     }
 

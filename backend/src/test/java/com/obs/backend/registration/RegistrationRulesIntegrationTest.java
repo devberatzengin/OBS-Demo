@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -210,6 +211,29 @@ class RegistrationRulesIntegrationTest extends AbstractIntegrationTest {
         available()
                 .andExpect(jsonPath("$[?(@.id == " + math.getId() + ")].quota").value(contains(1)))
                 .andExpect(jsonPath("$[?(@.id == " + math.getId() + ")].enrolledCount").value(contains(1)));
+    }
+
+    @Test
+    void theAdvisorRejectingARequestFreesThePlace() throws Exception {
+        math.setQuota(1);
+        save(math);
+        Student other = data.student(department, instructor);
+        Enrollment request = data.enrollment(other, math, active, EnrollmentStatus.PENDING);
+        enroll(math).andExpect(status().isConflict());
+
+        mockMvc.perform(put("/api/academician/enrollments/" + request.getId() + "/reject").with(auth.as(instructor)))
+                .andExpect(status().isOk());
+
+        enroll(math).andExpect(status().isOk());
+    }
+
+    @Test
+    void anApprovedEnrollmentCannotBeRejected() throws Exception {
+        Enrollment approved = data.enrollment(student, math, active, EnrollmentStatus.APPROVED);
+
+        mockMvc.perform(put("/api/academician/enrollments/" + approved.getId() + "/reject").with(auth.as(instructor)))
+                .andExpect(status().isConflict());
+        assertThat(enrollmentRepository.findById(approved.getId())).isPresent();
     }
 
     @Test

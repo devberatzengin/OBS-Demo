@@ -40,9 +40,15 @@ const CourseRegistration = () => {
   }, []);
 
   const isSelected = (c) => selected.some((s) => s.id === c.id);
+  // quota is null when the course has no limit; pending requests already hold a place
+  const isFull = (c) => c.quota != null && !c.registered && c.enrolledCount >= c.quota;
 
   const toggle = (course) => {
     if (course.registered) return;
+    if (!isSelected(course) && isFull(course)) {
+      toast.info('Course is full', `${course.code} has no places left this semester.`);
+      return;
+    }
     if (course.passed) {
       toast.info('Already passed', `You passed ${course.code} with ${course.grade}. Only DD and DC can be retaken.`);
       return;
@@ -149,7 +155,8 @@ const CourseRegistration = () => {
               {visible.map((c) => {
                 const sel = isSelected(c);
                 const pending = c.registered && c.status === 'PENDING';
-                const locked = c.registered || c.passed;
+                const full = isFull(c);
+                const locked = c.registered || c.passed || full;
                 return (
                   <li
                     key={c.id}
@@ -180,6 +187,7 @@ const CourseRegistration = () => {
                         {c.registered && !pending && <Badge tone="success" icon={Check}>Enrolled</Badge>}
                         {c.status === 'REJECTED' && !c.registered && <Badge tone="danger" icon={X}>Rejected</Badge>}
                         {c.passed && <Badge tone="neutral">Passed · {c.grade}</Badge>}
+                        {full && <Badge tone="danger">Full</Badge>}
                         {!c.passed && !c.mandatory && c.grade && <Badge tone="accent">Retake to raise {c.grade}</Badge>}
                       </div>
                       <p className="mt-0.5 truncate text-sm font-medium">{c.name}</p>
@@ -189,6 +197,9 @@ const CourseRegistration = () => {
                     <div className="hidden text-right text-xs text-fg-subtle sm:block">
                       <p className="text-sm font-semibold text-fg tabular-nums">{c.akts} ECTS</p>
                       <p>{c.credits} credits</p>
+                      {c.quota != null && (
+                        <p className={cn('tabular-nums', full && 'text-danger')}>{c.enrolledCount}/{c.quota} places</p>
+                      )}
                     </div>
                   </li>
                 );
