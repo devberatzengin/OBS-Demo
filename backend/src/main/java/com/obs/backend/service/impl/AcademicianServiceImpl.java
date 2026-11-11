@@ -180,6 +180,7 @@ public class AcademicianServiceImpl implements AcademicianService {
 
     @Override
     public List<com.obs.backend.dto.academician.AcademicianScheduleDTO> getCourseSchedule(Long courseId) {
+        requireOwnCourse(courseId);
         return scheduleRepository.findByCourseId(courseId).stream()
                 .map(schedule -> com.obs.backend.dto.academician.AcademicianScheduleDTO.builder()
                         .courseId(schedule.getCourse().getId())
@@ -467,6 +468,7 @@ public class AcademicianServiceImpl implements AcademicianService {
 
     @Override
     public List<AttendanceEntryRequest.StudentAttendanceDTO> getTodayAttendance(Long courseId) {
+        requireOwnCourse(courseId);
         LocalDate todayDate = LocalDate.now();
         List<AttendanceRecord> records = attendanceRecordRepository.findByEnrollmentCourseIdAndAttendanceDate(courseId,
                 todayDate);
@@ -559,6 +561,17 @@ public class AcademicianServiceImpl implements AcademicianService {
         chatMessageRepository.save(message);
     }
 
+    /** Loads a course and checks that the signed-in academician teaches it. */
+    private Course requireOwnCourse(Long courseId) {
+        Academician currentHoca = getCurrentAcademician();
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Course not found"));
+        if (course.getInstructor() == null || !course.getInstructor().getId().equals(currentHoca.getId())) {
+            throw new ObsException(ErrorCode.ACCESS_DENIED, "You are not the instructor of this course");
+        }
+        return course;
+    }
+
     private Academician getCurrentAcademician() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) {
@@ -639,7 +652,7 @@ public class AcademicianServiceImpl implements AcademicianService {
 
     @Override
     public List<Announcement> getCourseAnnouncements(@lombok.NonNull Long courseId) {
-        // Anyone can view announcements of a course (keeping it simple)
+        requireOwnCourse(courseId);
         return announcementRepository.findByCourseIdOrderByTimestampDesc(courseId);
     }
 

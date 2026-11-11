@@ -146,9 +146,9 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Test: pasife alınan kullanıcının token'ı 401.
 
 **1.5 Akademisyen ve mesaj sahipliği**
-- [ ] `requireOwnCourse(courseId)`; `getTodayAttendance`, `getCourseSchedule`, `getCourseAnnouncements`
-- [ ] `markAsRead` sadece alıcı
-- [ ] Frontend'in kullanmadığı mesajlaşma API'sini kaldır
+- [x] `requireOwnCourse(courseId)`; `getTodayAttendance`, `getCourseSchedule`, `getCourseAnnouncements`
+- [x] `markAsRead` sadece alıcı
+- [x] Frontend'in kullanmadığı mesajlaşma API'sini kaldır
 - Test: başka hocanın dersi 403; başkasının mesajı 404.
 
 **1.6 Login rate limit**
