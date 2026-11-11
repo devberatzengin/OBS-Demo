@@ -16,7 +16,7 @@ Geliştirici: Berat (macOS, JetBrains Rider). Konuşma dili Türkçe; kod, commi
 
 - İlk kurulum: `cp .env.example .env` ve `OBS_JWT_SECRET` (32+ karakter, `openssl rand -base64 48`) ile `OBS_DB_PASSWORD`'ı doldur. Uygulama secret olmadan açılmaz.
 - Veritabanı: `docker compose up -d db`
-- Backend test: `cd backend && ./gradlew test` (Testcontainers eklendikten sonra Docker Desktop açık olmalı)
+- Backend test: `cd backend && ./gradlew test` (Docker Desktop açık olmalı: testler Testcontainers ile kendi PostgreSQL'ini açar)
 - Backend çalıştır: `cd backend && ./gradlew bootRun`
 - Frontend: `cd frontend && npm install && npm run dev` (lint: `npm run lint`, build: `npm run build`)
 
@@ -26,9 +26,9 @@ Geliştirici: Berat (macOS, JetBrains Rider). Konuşma dili Türkçe; kod, commi
 
 ## Mevcut durum (6 Kasım 2026)
 
-- Aktif branch `hardening` (`frontend-modernize` üzerine): plan alt fazları 0.1–0.4, 1.1, 1.2 tamam, her biri ayrı commit. Push ve merge edilmedi.
-- Bu kod derlenmeden yazıldı (oturumda Maven erişimi yoktu); ilk iş `./gradlew test` çalıştırıp sonucu doğrulamak. Notlar: `docs/HARDENING_PLAN.md` sonu.
-- Sıradaki: 1.3–1.6 (K3, K4 kararları gerekli), sonra Faz 2 (K1, K2, K5).
+- Aktif branch `hardening` (`frontend-modernize` üzerine): Faz 0 ve Faz 1 tamam (0.1–1.6), her alt faz ayrı commit. Push ve merge edilmedi.
+- Bu kod derlenmeden yazıldı (oturumlarda Maven erişimi yoktu); ilk iş `./gradlew test` çalıştırıp sonucu doğrulamak. Notlar: `docs/HARDENING_PLAN.md` sonu.
+- Kararlar: K3 = (b), K4 = (b). Sıradaki: Faz 2 (K1, K2, K5 kararları gerekli).
 
 ## Çalışma kuralları
 

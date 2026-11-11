@@ -268,3 +268,9 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - 0.4'e plan dışı küçük ek: yanlış HTTP metodu artık 500 yerine 405.
 - `ErrorCode.ALREADY_EXISTS` hâlâ 400 dönüyor; 409'a çekmek frontend mesajlarını etkileyebileceği için Faz 3.4'e bırakıldı.
 - Kökteki `seed.sql` eski ve kullanılmıyor (şema ile uyumsuz kolonlar içeriyor olabilir); silinmesi önerilir.
+
+**2. oturum (11 Kasım 2026)**: 1.3–1.6 `hardening` branch'inde, alt faz başına bir commit. K3 = (b), K4 = (b). Bu kod da derlenmeden yazıldı; 1. oturumla birlikte ilk `./gradlew test`'te doğrulanacak.
+- 1.3: "Delete" pasife alıyor; ayrıca `PATCH /api/admin/users/{id}/reactivate` eklendi. Listeler pasif kullanıcıları gizlemek yerine "Inactive" rozetiyle gösteriyor, çünkü admin'in geri açabilmesi gerekiyor.
+- 1.4: Oturumsuz isteklere artık 403 yerine 401 dönüyor. Frontend'in "401'de oturumu kapat" mantığı daha önce hiç tetiklenmiyordu. Ayrıca yanlış şifre girildiğinde login sayfasının yeniden yüklenip hata mesajını silmesi düzeltildi.
+- 1.5: Analizdeki "herkes her mesajı okundu yapabiliyor" bulgusu abartılıydı: `markAsRead`'i çağıran bir HTTP ucu yoktu. Yine de servis seviyesinde sahiplik kontrolü eklendi.
+- 1.6: Bucket4j yerine bağımlılıksız bir in-memory limiter yazıldı (tek instance için yeterli; ölçeklenirse Redis gerekir). IP limiti dakikada 5 değil 20, çünkü kampüs ağında birçok kullanıcı aynı IP'yi paylaşır.
