@@ -165,11 +165,11 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Test (saf birim): 89.99 → BA, 90 → AA, 49.99 → FF; boş liste; tekrar; AKTS ağırlığı; simülasyon.
 
 **2.2 Not kesinleştirme**
-- [ ] Not girişi sadece `score`'u günceller; `grade` null kalır
-- [ ] `POST /academician/courses/{id}/finalize-grades`: ağırlıklar %100 ve her onaylı öğrencinin her sınav notu var; yoksa eksik listesiyle 400
-- [ ] Başarılıysa harfler atanır, kayıtlar `FINALIZED`, bildirim, audit log
-- [ ] Kesinleşmiş notu değiştirme ayrı uç, gerekçe zorunlu, audit log
-- [ ] Frontend: "Notları kesinleştir" butonu, eksik not uyarısı; öğrencide "Devam ediyor"
+- [x] Not girişi sadece `score`'u günceller; `grade` null kalır
+- [x] `POST /academician/courses/{id}/finalize-grades`: ağırlıklar %100 ve her onaylı öğrencinin her sınav notu var; yoksa eksik listesiyle 400
+- [x] Başarılıysa harfler atanır, kayıtlar `FINALIZED`, bildirim, audit log
+- [x] Kesinleşmiş notu değiştirme ayrı uç, gerekçe zorunlu, audit log
+- [x] Frontend: "Notları kesinleştir" butonu, eksik not uyarısı; öğrencide "Devam ediyor"
 - Test: sadece vize → harf null; eksikle finalize 400; tamla harfler atanır.
 
 **2.3 GPA tek kaynaktan**

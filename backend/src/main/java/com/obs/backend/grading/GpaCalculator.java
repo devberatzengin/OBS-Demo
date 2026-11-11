@@ -1,5 +1,6 @@
 package com.obs.backend.grading;
 
+import com.obs.backend.model.Enrollment;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -44,6 +45,19 @@ public class GpaCalculator {
         Map<Long, CourseAttempt> latest = attempts.stream()
                 .collect(Collectors.toMap(CourseAttempt::courseId, a -> a, later));
         return List.copyOf(latest.values());
+    }
+
+    /**
+     * Whether an enrollment's grade counts towards the GPA: it must be finalized by the
+     * instructor (plan decision K1) and carry a known letter. Callers pass approved enrollments.
+     */
+    public boolean counts(Enrollment enrollment) {
+        return enrollment.isGradeFinalized() && gradingPolicy.isKnownLetter(enrollment.getGrade());
+    }
+
+    /** The counting attempts among the given enrollments. */
+    public List<CourseAttempt> countedAttempts(Collection<Enrollment> enrollments) {
+        return enrollments.stream().filter(this::counts).map(CourseAttempt::of).toList();
     }
 
     /** Cumulative GPA (GNO): the latest attempt of every course, ECTS-weighted. */

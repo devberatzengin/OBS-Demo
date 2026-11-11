@@ -2,11 +2,14 @@ package com.obs.backend.support;
 
 import com.obs.backend.model.*;
 import com.obs.backend.model.enums.EnrollmentStatus;
+import com.obs.backend.model.enums.ExamType;
 import com.obs.backend.model.enums.Role;
 import com.obs.backend.repository.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -29,6 +32,8 @@ public class TestDataFactory {
     private final CourseRepository courseRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final TodoItemRepository todoItemRepository;
+    private final ExamRepository examRepository;
+    private final GradeRepository gradeRepository;
     private final PasswordEncoder passwordEncoder;
 
     public TestDataFactory(FacultyRepository facultyRepository, DepartmentRepository departmentRepository,
@@ -36,6 +41,7 @@ public class TestDataFactory {
                            AcademicianRepository academicianRepository, StudentRepository studentRepository,
                            AdministrativeRepository administrativeRepository, CourseRepository courseRepository,
                            EnrollmentRepository enrollmentRepository, TodoItemRepository todoItemRepository,
+                           ExamRepository examRepository, GradeRepository gradeRepository,
                            PasswordEncoder passwordEncoder) {
         this.facultyRepository = facultyRepository;
         this.departmentRepository = departmentRepository;
@@ -47,6 +53,8 @@ public class TestDataFactory {
         this.courseRepository = courseRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.todoItemRepository = todoItemRepository;
+        this.examRepository = examRepository;
+        this.gradeRepository = gradeRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -65,6 +73,55 @@ public class TestDataFactory {
 
     public Semester semester(boolean active) {
         return semesterRepository.save(Semester.builder().name("Semester " + next()).isActive(active).build());
+    }
+
+    /**
+     * The one active semester: deactivates any other active semester first, because several
+     * services look it up with findByIsActiveTrue. Use inside a @Transactional test.
+     */
+    public Semester activeSemester() {
+        semesterRepository.findAll().forEach(sem -> {
+            if (sem.isActive()) {
+                sem.setActive(false);
+                semesterRepository.save(sem);
+            }
+        });
+        return semesterRepository.save(Semester.builder()
+                .name("Semester " + next()).isActive(true).startDate(LocalDate.now().minusMonths(1)).build());
+    }
+
+    /** A past, inactive semester starting at the given date (for transcript history and retakes). */
+    public Semester pastSemester(LocalDate startDate) {
+        return semesterRepository.save(Semester.builder().name("Semester " + next()).isActive(false).startDate(startDate).build());
+    }
+
+    public Exam exam(Course course, Semester semester, ExamType type, double ratio) {
+        return examRepository.save(Exam.builder()
+                .examType(type)
+                .examDate(LocalDateTime.now())
+                .ratio(ratio)
+                .course(course)
+                .classroom(classroom())
+                .semester(semester)
+                .build());
+    }
+
+    /** Stores an exam score directly, bypassing the API (for setting up history). */
+    public Grade score(Enrollment enrollment, Exam exam, double score) {
+        return gradeRepository.save(Grade.builder().enrollment(enrollment).exam(exam).score(score).build());
+    }
+
+    /** An approved enrollment that already has a finalized letter grade. */
+    public Enrollment finalizedEnrollment(Student student, Course course, Semester semester, String letter) {
+        Enrollment enrollment = Enrollment.builder()
+                .student(student)
+                .course(course)
+                .semester(semester)
+                .status(EnrollmentStatus.APPROVED)
+                .grade(letter)
+                .gradeFinalizedAt(LocalDateTime.now())
+                .build();
+        return enrollmentRepository.save(enrollment);
     }
 
     public Classroom classroom() {

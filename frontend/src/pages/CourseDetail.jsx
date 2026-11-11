@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   Users, ClipboardCheck, GraduationCap, CalendarClock, ChevronLeft, Search, Plus, Pencil, Trash2,
-  MapPin, Megaphone, Download, Lock, Check, X, Save, BarChart3,
+  MapPin, Megaphone, Download, Lock, Check, X, Save, BarChart3, BadgeCheck,
 } from 'lucide-react';
 import AcademicianService from '../services/AcademicianService';
 import {
@@ -253,6 +253,11 @@ function GradingTab({ courseId, course, students, exams, onSaved }) {
   const [loadingGrades, setLoadingGrades] = useState(exams.length > 0);
   const [saving, setSaving] = useState(false);
   const [analytics, setAnalytics] = useState(null);
+  const [confirmFinalize, setConfirmFinalize] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const [correction, setCorrection] = useState(null); // { student, score, reason }
+  const [correcting, setCorrecting] = useState(false);
+  const finalized = !!analytics?.gradesFinalized;
 
   const loadAnalytics = useCallback(() => {
     AcademicianService.getCourseAnalytics(courseId).then(setAnalytics).catch(() => setAnalytics(null));
@@ -295,6 +300,41 @@ function GradingTab({ courseId, course, students, exams, onSaved }) {
     }
   };
 
+  const finalize = async () => {
+    setFinalizing(true);
+    try {
+      const result = await AcademicianService.finalizeGrades(courseId);
+      toast.success('Grades finalized', `${result.finalizedCount} students received their letter grade for ${result.semesterName}.`);
+      setConfirmFinalize(false);
+      loadAnalytics();
+      onSaved?.();
+    } catch (err) {
+      toast.error('Could not finalize grades', apiError(err));
+    } finally {
+      setFinalizing(false);
+    }
+  };
+
+  const submitCorrection = async () => {
+    setCorrecting(true);
+    try {
+      await AcademicianService.correctGrade(examId, {
+        studentId: correction.student.id,
+        score: Number(correction.score),
+        reason: correction.reason.trim(),
+      });
+      setGrades({ ...grades, [correction.student.id]: correction.score });
+      toast.success('Grade corrected', `${fullName(correction.student)} has been notified.`);
+      setCorrection(null);
+      loadAnalytics();
+      onSaved?.();
+    } catch (err) {
+      toast.error('Could not correct grade', apiError(err));
+    } finally {
+      setCorrecting(false);
+    }
+  };
+
   const exportCsv = async () => {
     try {
       const csv = await AcademicianService.exportCourseGrades(courseId);
@@ -324,6 +364,16 @@ function GradingTab({ courseId, course, students, exams, onSaved }) {
         </div>
       )}
 
+      {finalized ? (
+        <Alert tone="success" title="Grades finalized">
+          Letter grades are published to students. Changes now go through a correction with a reason, which is logged.
+        </Alert>
+      ) : (
+        <Alert tone="info" title="Letter grades are assigned when you finalize">
+          Enter every exam score, then finalize. Until then students see the course as in progress.
+        </Alert>
+      )}
+
       <Card>
         <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border px-5 py-4">
           <Field label="Exam" htmlFor="grade-exam" className="w-64">
@@ -336,7 +386,12 @@ function GradingTab({ courseId, course, students, exams, onSaved }) {
           <div className="flex items-center gap-2">
             <span className="text-sm text-fg-subtle tabular-nums">{entered}/{students.length} entered</span>
             <Button variant="secondary" icon={Download} onClick={exportCsv}>Export CSV</Button>
-            <Button icon={Save} loading={saving} disabled={invalid || loadingGrades} onClick={save}>Save grades</Button>
+            {!finalized && (
+              <>
+                <Button variant="secondary" icon={BadgeCheck} onClick={() => setConfirmFinalize(true)}>Finalize grades</Button>
+                <Button icon={Save} loading={saving} disabled={invalid || loadingGrades} onClick={save}>Save grades</Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -346,7 +401,7 @@ function GradingTab({ courseId, course, students, exams, onSaved }) {
           <EmptyState icon={Users} title="No students to grade" />
         ) : (
           <Table>
-            <THead><tr><TH>Student</TH><TH>Number</TH><TH className="w-40 text-right">Score (0–100)</TH></tr></THead>
+            <THead><tr><TH>Student</TH><TH>Number</TH><TH className="w-40 text-right">Score (0–100)</TH>{finalized && <TH className="w-28" />}</tr></THead>
             <TBody>
               {students.map((s) => {
                 const v = grades[s.id] ?? '';
@@ -357,10 +412,15 @@ function GradingTab({ courseId, course, students, exams, onSaved }) {
                     <TD className="tabular-nums text-fg-muted">{s.studentNumber}</TD>
                     <TD className="text-right">
                       <Input type="number" min={0} max={100} step="0.5" inputMode="decimal" placeholder="—" value={v}
-                        aria-label={`Score for ${fullName(s)}`}
+                        aria-label={`Score for ${fullName(s)}`} disabled={finalized}
                         onChange={(e) => setGrades({ ...grades, [s.id]: e.target.value })}
                         className={cn('ml-auto w-24 text-right tabular-nums', bad && 'border-danger')} />
                     </TD>
+                    {finalized && (
+                      <TD className="text-right">
+                        <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setCorrection({ student: s, score: v, reason: '' })}>Correct</Button>
+                      </TD>
+                    )}
                   </TR>
                 );
               })}
@@ -368,6 +428,46 @@ function GradingTab({ courseId, course, students, exams, onSaved }) {
           </Table>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={confirmFinalize}
+        onClose={() => setConfirmFinalize(false)}
+        onConfirm={finalize}
+        loading={finalizing}
+        tone="primary"
+        confirmLabel="Finalize"
+        title="Finalize grades?"
+        description="Letter grades are calculated from all exam scores and published to students; their GPA is updated. Every student needs a score for every exam. Later changes require a correction with a reason."
+      />
+
+      <Modal
+        open={!!correction}
+        onClose={() => setCorrection(null)}
+        title={correction ? `Correct ${fullName(correction.student)}` : ''}
+        description={exams.find((e) => e.id === examId) ? `${examTypeLabel(exams.find((e) => e.id === examId).examType)} score; the letter grade and GPA are recalculated.` : ''}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCorrection(null)}>Cancel</Button>
+            <Button loading={correcting}
+              disabled={!correction || correction.score === '' || Number(correction.score) < 0 || Number(correction.score) > 100 || correction.reason.trim().length < 10}
+              onClick={submitCorrection}>Save correction</Button>
+          </>
+        }
+      >
+        {correction && (
+          <div className="space-y-4">
+            <Field label="New score (0–100)" htmlFor="corr-score">
+              <Input id="corr-score" type="number" min={0} max={100} step="0.5" value={correction.score}
+                onChange={(e) => setCorrection({ ...correction, score: e.target.value })} className="w-32" />
+            </Field>
+            <Field label="Reason" htmlFor="corr-reason" hint="At least 10 characters. Stored in the audit log.">
+              <Textarea id="corr-reason" rows={3} value={correction.reason}
+                onChange={(e) => setCorrection({ ...correction, reason: e.target.value })}
+                placeholder="e.g. Exam re-evaluated after objection" />
+            </Field>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

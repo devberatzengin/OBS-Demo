@@ -259,7 +259,8 @@ public class AcademicianIntegrationTest extends AbstractIntegrationTest {
 
         // Midterm result: 80 * 0.4 = 32
         Enrollment updated1 = enrollmentRepository.findById(enrollment.getId()).orElseThrow();
-        Assertions.assertEquals(32.0, updated1.getScore());
+        Assertions.assertEquals(32.0, updated1.getScore(), 1e-9);
+        Assertions.assertNull(updated1.getGrade());
 
         // Final grade: 90
         GradeEntryRequest finalGrade = GradeEntryRequest.builder()
@@ -271,10 +272,17 @@ public class AcademicianIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(finalGrade)))
                 .andExpect(status().isOk());
 
-        // Final result: (80*0.4) + (90*0.6) = 32 + 54 = 86 (BA)
+        // Final result: (80*0.4) + (90*0.6) = 32 + 54 = 86, but no letter until the instructor finalizes (K1)
         Enrollment updated2 = enrollmentRepository.findById(enrollment.getId()).orElseThrow();
-        Assertions.assertEquals(86.0, updated2.getScore());
-        Assertions.assertEquals("BA", updated2.getGrade());
+        Assertions.assertEquals(86.0, updated2.getScore(), 1e-9);
+        Assertions.assertNull(updated2.getGrade());
+
+        mockMvc.perform(post("/api/academician/courses/" + course.getId() + "/finalize-grades"))
+                .andExpect(status().isOk());
+
+        Enrollment finalized = enrollmentRepository.findById(enrollment.getId()).orElseThrow();
+        Assertions.assertEquals("BA", finalized.getGrade());
+        Assertions.assertTrue(finalized.isGradeFinalized());
     }
 
     @Test

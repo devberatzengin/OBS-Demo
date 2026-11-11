@@ -92,16 +92,9 @@ public class TranscriptServiceImpl implements TranscriptService {
         return gpa == null ? 0.0 : gpa;
     }
 
-    /** Attempts whose grade counts towards the GPA. */
+    /** Attempts whose grade counts towards the GPA (finalized, known letter). */
     private List<CourseAttempt> countedAttempts(List<Enrollment> enrollments) {
-        return enrollments.stream()
-                .filter(this::countsTowardsGpa)
-                .map(CourseAttempt::of)
-                .toList();
-    }
-
-    private boolean countsTowardsGpa(Enrollment enrollment) {
-        return gradingPolicy.isKnownLetter(enrollment.getGrade());
+        return gpaCalculator.countedAttempts(enrollments);
     }
 
     private CourseGradeDTO toCourseGrade(Enrollment e) {
@@ -110,7 +103,7 @@ public class TranscriptServiceImpl implements TranscriptService {
                 .courseName(e.getCourse().getName())
                 .credits(e.getCourse().getCredits())
                 .akts(e.getCourse().getAkts())
-                .grade(countsTowardsGpa(e) ? e.getGrade() : null)
+                .grade(gpaCalculator.counts(e) ? e.getGrade() : null)
                 .build();
     }
 

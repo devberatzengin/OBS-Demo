@@ -95,6 +95,18 @@ public class AcademicianController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/courses/{courseId}/finalize-grades")
+    public ResponseEntity<com.obs.backend.dto.academician.GradeFinalizationResult> finalizeGrades(@PathVariable Long courseId) {
+        return ResponseEntity.ok(academicianService.finalizeGrades(courseId));
+    }
+
+    @PostMapping("/exams/{examId}/grade-corrections")
+    public ResponseEntity<Void> correctFinalizedGrade(@PathVariable Long examId,
+                                                      @RequestBody com.obs.backend.dto.academician.GradeCorrectionRequest request) {
+        academicianService.correctFinalizedGrade(examId, request);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/courses/{courseId}/attendance")
     public ResponseEntity<Void> recordAttendance(@PathVariable Long courseId, @RequestBody AttendanceEntryRequest request) {
         academicianService.recordAttendance(courseId, request);

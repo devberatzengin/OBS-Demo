@@ -67,7 +67,7 @@ function SemesterCard({ semester, open, onToggle }) {
                   <TD>{c.courseName}</TD>
                   <TD className="text-right tabular-nums">{c.credits}</TD>
                   <TD className="text-right tabular-nums">{c.akts}</TD>
-                  <TD className="text-right">{c.grade ? <Badge tone={gradeTone(c.grade)}>{c.grade}</Badge> : <span className="text-fg-subtle">—</span>}</TD>
+                  <TD className="text-right">{c.grade ? <Badge tone={gradeTone(c.grade)}>{c.grade}</Badge> : <Badge>In progress</Badge>}</TD>
                 </TR>
               ))}
             </TBody>
@@ -169,7 +169,8 @@ const TranscriptPage = () => {
   const totals = useMemo(() => {
     if (!transcript) return {};
     const all = transcript.semesters.flatMap((s) => s.courses);
-    const completed = all.filter((c) => c.grade && !['FF', 'FD'].includes(c.grade));
+    // Only FF is a failing grade (FD passes)
+    const completed = all.filter((c) => c.grade && c.grade !== 'FF');
     return { credits: sum(completed, 'credits'), akts: sum(completed, 'akts'), courses: all.length };
   }, [transcript]);
 

@@ -104,3 +104,8 @@ VALUES ((SELECT id FROM users WHERE username = '2024001'), 'Ders Kaydını Tamam
 
 INSERT INTO chat_messages (sender_id, receiver_id, content, timestamp, is_read) 
 VALUES ((SELECT id FROM users WHERE username = 'hocam01'), (SELECT id FROM users WHERE username = '2024001'), 'Hoş geldin Berat. Akademik planın hakkında konuşabiliriz.', NOW(), false);
+
+-- 12. NOTLAR: seed'deki harf notları kesinleşmiş sayılır (plan 2.2)
+UPDATE enrollments
+SET grade_finalized_at = now()
+WHERE grade IN ('AA', 'BA', 'BB', 'CB', 'CC', 'DC', 'DD', 'FD', 'FF');
