@@ -190,7 +190,7 @@ const TranscriptPage = () => {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Cumulative GPA" value={transcript.cumulativeGpa?.toFixed(2) ?? '0.00'} icon={Award} tone={gpaTone(transcript.cumulativeGpa)} hint="ECTS-weighted (GNO)" />
+        <StatCard label="Cumulative GPA" value={transcript.cumulativeGpa?.toFixed(2) ?? '—'} icon={Award} tone={gpaTone(transcript.cumulativeGpa)} hint="ECTS-weighted (GNO)" />
         <StatCard label="Credits earned" value={totals.credits} icon={Hash} tone="info" />
         <StatCard label="ECTS earned" value={totals.akts} icon={GraduationCap} tone="info" />
         <StatCard label="Courses taken" value={totals.courses} icon={BookOpen} hint={`${transcript.semesters.length} semesters`} />

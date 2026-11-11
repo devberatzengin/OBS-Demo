@@ -5,6 +5,7 @@ import com.obs.backend.exception.ErrorCode;
 import com.obs.backend.exception.ObsException;
 import com.obs.backend.model.*;
 import com.obs.backend.model.enums.EnrollmentStatus;
+import com.obs.backend.grading.GradingPolicy;
 import com.obs.backend.repository.*;
 import com.obs.backend.service.AcademicianService;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class AcademicianServiceImpl implements AcademicianService {
     private final AnnouncementRepository announcementRepository;
     private final OfficeHourRepository officeHourRepository;
     private final NotificationRepository notificationRepository;
+    private final GradingPolicy gradingPolicy;
 
     @Override
     public AcademicianProfileDTO getProfile() {
@@ -373,25 +375,7 @@ public class AcademicianServiceImpl implements AcademicianService {
         }
         enrollment.setScore(totalScore);
 
-        // Simple Grade translation logic (can be moved to a strategy later)
-        if (totalScore >= 90)
-            enrollment.setGrade("AA");
-        else if (totalScore >= 85)
-            enrollment.setGrade("BA");
-        else if (totalScore >= 80)
-            enrollment.setGrade("BB");
-        else if (totalScore >= 75)
-            enrollment.setGrade("CB");
-        else if (totalScore >= 70)
-            enrollment.setGrade("CC");
-        else if (totalScore >= 65)
-            enrollment.setGrade("DC");
-        else if (totalScore >= 60)
-            enrollment.setGrade("DD");
-        else if (totalScore >= 50)
-            enrollment.setGrade("FD");
-        else
-            enrollment.setGrade("FF");
+        enrollment.setGrade(gradingPolicy.letterFor(totalScore));
 
         enrollmentRepository.save(enrollment);
     }
