@@ -279,6 +279,8 @@ public class AdminServiceImpl implements AdminService {
             s.setActive(false);
         }
         semesterRepository.saveAll(activeSemesters);
+        // Write the deactivation first: at most one semester may be active (unique index, V3)
+        semesterRepository.flush();
 
         // 2. Activate target
         Semester target = semesterRepository.findById(id)

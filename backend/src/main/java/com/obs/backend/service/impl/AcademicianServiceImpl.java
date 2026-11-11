@@ -622,9 +622,13 @@ public class AcademicianServiceImpl implements AcademicianService {
         }
         // ------------------------------
 
+        // A student retaking the course has one enrollment per semester: use this semester's
+        Semester activeSemester = semesterRepository.findByIsActiveTrue()
+                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Active semester not found"));
+
         for (AttendanceEntryRequest.StudentAttendanceDTO attendanceDto : request.getAttendance()) {
             Enrollment enrollment = enrollmentRepository
-                    .findByCourseIdAndStudentId(courseId, attendanceDto.getStudentId())
+                    .findByCourseIdAndStudentIdAndSemesterId(courseId, attendanceDto.getStudentId(), activeSemester.getId())
                     .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND,
                             "Enrollment not found for student " + attendanceDto.getStudentId()));
 

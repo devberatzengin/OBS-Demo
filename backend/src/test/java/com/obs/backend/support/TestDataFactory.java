@@ -88,6 +88,8 @@ public class TestDataFactory {
                 semesterRepository.save(sem);
             }
         });
+        // Deactivate before inserting: Hibernate flushes inserts before updates (unique index, V3)
+        semesterRepository.flush();
         return semesterRepository.save(Semester.builder()
                 .name("Semester " + next()).isActive(true).startDate(LocalDate.now().minusMonths(1)).build());
     }

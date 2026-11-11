@@ -207,16 +207,16 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - [x] Frontend "12/40" doluluk
 - Test: kontenjan 1, 10 eşzamanlı istek → 1 başarılı, 9 `QUOTA_FULL`.
 
-**3.3 Veritabanı kısıtları (Flyway V2)**
-- [ ] Mükerrer veri kontrolü ve temizlik
-- [ ] Unique: enrollments, grades, attendance_records
-- [ ] Check: score 0–100, ratio (0,100], akts > 0, quota ≥ 0
-- [ ] Tek aktif dönem: partial unique index
-- [ ] Index: `enrollments(student_id)`, `enrollments(course_id, semester_id, status)`, `schedules(course_id)`, `chat_messages(sender_id, receiver_id)`
+**3.3 Veritabanı kısıtları (Flyway V3)**
+- [x] Mükerrer veri kontrolü ve temizlik
+- [x] Unique: enrollments, grades, attendance_records
+- [x] Check: score 0–100, ratio (0,100], akts > 0, quota ≥ 0
+- [x] Tek aktif dönem: partial unique index
+- [x] Index: `enrollments(student_id)`, `enrollments(course_id, semester_id, status)`, `schedules(course_id)`, `chat_messages(sender_id, receiver_id)`
 - Test: repository ile mükerrer kayıt → 409.
 
 **3.4 Optimistic locking ve validasyon**
-- [ ] `@Version`: Enrollment, Grade, Course, Semester (Flyway V3)
+- [ ] `@Version`: Enrollment, Grade, Course, Semester (Flyway V4)
 - [ ] Optimistic lock hatası → 409
 - [ ] Tüm request DTO'lara Bean Validation + `@Valid`; alan bazlı hata listesi; frontend alan altında gösterir
 - [ ] Harf notu enum
