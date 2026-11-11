@@ -389,7 +389,7 @@ function GradingTab({ courseId, course, students, exams, onSaved }) {
             {!finalized && (
               <>
                 <Button variant="secondary" icon={BadgeCheck} onClick={() => setConfirmFinalize(true)}>Finalize grades</Button>
-                <Button icon={Save} loading={saving} disabled={invalid || loadingGrades} onClick={save}>Save grades</Button>
+                <Button icon={Save} loading={saving} disabled={invalid || loadingGrades || entered === 0} onClick={save}>Save grades</Button>
               </>
             )}
           </div>

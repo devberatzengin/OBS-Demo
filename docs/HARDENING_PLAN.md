@@ -184,9 +184,9 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Test: aktif dönem FF zorunlu değil; geçen dönem FF zorunlu; sonra geçilmişse değil.
 
 **2.5 Sınav kuralları**
-- [ ] Toplam ağırlık > %100 → 400
-- [ ] Notlu sınav silinemez (409); kesinleşmiş dersin sınavı değişmez
-- [ ] Puan 0–100 kontrolü
+- [x] Toplam ağırlık > %100 → 400
+- [x] Notlu sınav silinemez (409); kesinleşmiş dersin sınavı değişmez
+- [x] Puan 0–100 kontrolü
 - Test: %110 → 400; notlu sınav silme 409.
 
 ### Faz 3: Kayıt kuralları ve veri bütünlüğü

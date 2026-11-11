@@ -234,6 +234,10 @@ public class AcademicianServiceImpl implements AcademicianService {
         Semester activeSemester = semesterRepository.findByIsActiveTrue()
                 .orElseThrow(() -> new ObsException(ErrorCode.INTERNAL_SERVER_ERROR, "Active semester not found"));
 
+        validateExamRequest(request);
+        requireGradesNotFinalized(course, activeSemester);
+        requireWeightWithinLimit(course, activeSemester, null, request.getRatio());
+
         Classroom classroom = classroomRepository.findById(request.getClassroomId())
                 .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Classroom not found"));
 
@@ -260,15 +264,28 @@ public class AcademicianServiceImpl implements AcademicianService {
             throw new ObsException(ErrorCode.ACCESS_DENIED, "You are not the instructor of this course");
         }
 
+        validateExamRequest(request);
+        requireGradesNotFinalized(exam.getCourse(), exam.getSemester());
+        requireWeightWithinLimit(exam.getCourse(), exam.getSemester(), exam.getId(), request.getRatio());
+
         Classroom classroom = classroomRepository.findById(request.getClassroomId())
                 .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Classroom not found"));
 
+        boolean ratioChanged = !request.getRatio().equals(exam.getRatio());
         exam.setExamType(request.getExamType());
         exam.setExamDate(request.getExamDate());
         exam.setRatio(request.getRatio());
         exam.setClassroom(classroom);
 
         examRepository.save(exam);
+
+        if (ratioChanged) {
+            // Keep the running scores in line with the new weight
+            gradeRepository.findByExamId(exam.getId()).stream()
+                    .map(Grade::getEnrollment)
+                    .distinct()
+                    .forEach(this::recalculateScore);
+        }
     }
 
     @Override
@@ -283,7 +300,50 @@ public class AcademicianServiceImpl implements AcademicianService {
             throw new ObsException(ErrorCode.ACCESS_DENIED, "You are not the instructor of this course");
         }
 
+        requireGradesNotFinalized(exam.getCourse(), exam.getSemester());
+        if (gradeRepository.existsByExamId(exam.getId())) {
+            throw new ObsException(ErrorCode.CONFLICT,
+                    "This exam already has scores; it cannot be deleted");
+        }
+
         examRepository.delete(exam);
+    }
+
+    /** Plan 2.5: an exam needs a type, a date, a classroom and a weight in (0, 100]. */
+    private void validateExamRequest(ExamRequest request) {
+        if (request.getExamType() == null || request.getExamDate() == null || request.getClassroomId() == null) {
+            throw new ObsException(ErrorCode.VALIDATION_ERROR, "Exam type, date and classroom are required");
+        }
+        if (request.getRatio() == null || request.getRatio() <= 0 || request.getRatio() > 100) {
+            throw new ObsException(ErrorCode.VALIDATION_ERROR, "Exam weight must be greater than 0 and at most 100");
+        }
+    }
+
+    /** The weights of a course's exams in one semester may not exceed 100%. */
+    private void requireWeightWithinLimit(Course course, Semester semester, Long excludedExamId, double ratio) {
+        double others = examRepository.findByCourseIdAndSemesterId(course.getId(), semester.getId()).stream()
+                .filter(e -> !e.getId().equals(excludedExamId))
+                .mapToDouble(Exam::getRatio)
+                .sum();
+        if (others + ratio > 100.0 + 1e-9) {
+            throw new ObsException(ErrorCode.VALIDATION_ERROR, String.format(
+                    "Exam weights would total %.0f%%; the other exams already use %.0f%%", others + ratio, others));
+        }
+    }
+
+    /** Once grades are finalized the exam setup of that course and semester is frozen. */
+    private void requireGradesNotFinalized(Course course, Semester semester) {
+        if (semester == null) {
+            return;
+        }
+        boolean finalized = enrollmentRepository
+                .findByCourseIdAndSemesterIdAndStatus(course.getId(), semester.getId(), EnrollmentStatus.APPROVED)
+                .stream()
+                .anyMatch(Enrollment::isGradeFinalized);
+        if (finalized) {
+            throw new ObsException(ErrorCode.CONFLICT,
+                    "Grades of " + course.getCode() + " are finalized; its exams cannot be changed");
+        }
     }
 
     @Override
@@ -339,6 +399,17 @@ public class AcademicianServiceImpl implements AcademicianService {
         if (exam.getCourse() == null || exam.getCourse().getInstructor() == null ||
                 !exam.getCourse().getInstructor().getId().equals(currentHoca.getId())) {
             throw new ObsException(ErrorCode.ACCESS_DENIED, "You are not the instructor of this course");
+        }
+
+        if (request.getGrades() == null || request.getGrades().isEmpty()) {
+            throw new ObsException(ErrorCode.VALIDATION_ERROR, "No grades given");
+        }
+        for (GradeEntryRequest.StudentGradeDTO gradeDto : request.getGrades()) {
+            if (gradeDto.getStudentId() == null || gradeDto.getScore() == null
+                    || gradeDto.getScore() < 0 || gradeDto.getScore() > 100) {
+                throw new ObsException(ErrorCode.VALIDATION_ERROR,
+                        "Score must be between 0 and 100 (student " + gradeDto.getStudentId() + ")");
+            }
         }
 
         for (GradeEntryRequest.StudentGradeDTO gradeDto : request.getGrades()) {
