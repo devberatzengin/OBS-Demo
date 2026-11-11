@@ -30,8 +30,10 @@ public class GlobalExceptionHandler {
             case RESOURCE_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case AUTHENTICATION_FAILED -> HttpStatus.UNAUTHORIZED;
             case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
-            case ALREADY_EXISTS, BAD_REQUEST, VALIDATION_ERROR -> HttpStatus.BAD_REQUEST;
-            case CONFLICT -> HttpStatus.CONFLICT;
+            case ALREADY_EXISTS, BAD_REQUEST, VALIDATION_ERROR,
+                 COURSE_NOT_OPEN, COURSE_NOT_IN_DEPARTMENT, COURSE_ALREADY_PASSED,
+                 MANDATORY_COURSE_MISSING, AKTS_LIMIT_EXCEEDED, SCHEDULE_CONFLICT -> HttpStatus.BAD_REQUEST;
+            case CONFLICT, REGISTRATION_CLOSED, ALREADY_REGISTERED, QUOTA_FULL -> HttpStatus.CONFLICT;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
         log.warn("{} {}: {}", status.value(), ex.getErrorCode().getCode(), ex.getDescription());

@@ -34,6 +34,7 @@ public class TestDataFactory {
     private final TodoItemRepository todoItemRepository;
     private final ExamRepository examRepository;
     private final GradeRepository gradeRepository;
+    private final ScheduleRepository scheduleRepository;
     private final PasswordEncoder passwordEncoder;
 
     public TestDataFactory(FacultyRepository facultyRepository, DepartmentRepository departmentRepository,
@@ -42,7 +43,7 @@ public class TestDataFactory {
                            AdministrativeRepository administrativeRepository, CourseRepository courseRepository,
                            EnrollmentRepository enrollmentRepository, TodoItemRepository todoItemRepository,
                            ExamRepository examRepository, GradeRepository gradeRepository,
-                           PasswordEncoder passwordEncoder) {
+                           ScheduleRepository scheduleRepository, PasswordEncoder passwordEncoder) {
         this.facultyRepository = facultyRepository;
         this.departmentRepository = departmentRepository;
         this.semesterRepository = semesterRepository;
@@ -55,6 +56,7 @@ public class TestDataFactory {
         this.todoItemRepository = todoItemRepository;
         this.examRepository = examRepository;
         this.gradeRepository = gradeRepository;
+        this.scheduleRepository = scheduleRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -124,6 +126,17 @@ public class TestDataFactory {
         return enrollmentRepository.save(enrollment);
     }
 
+    /** A weekly lesson of a course, e.g. schedule(course, DayOfWeek.MONDAY, "09:00", "11:00"). */
+    public Schedule schedule(Course course, java.time.DayOfWeek day, String start, String end) {
+        return scheduleRepository.save(Schedule.builder()
+                .course(course)
+                .classroom(classroom())
+                .dayOfWeek(day)
+                .startTime(java.time.LocalTime.parse(start))
+                .endTime(java.time.LocalTime.parse(end))
+                .build());
+    }
+
     public Classroom classroom() {
         return classroomRepository.save(Classroom.builder().code("ROOM-" + next()).capacity(50).build());
     }
@@ -182,6 +195,7 @@ public class TestDataFactory {
                 .name("Course " + n)
                 .akts(5)
                 .credits(3)
+                .open(true)
                 .department(department)
                 .instructor(instructor)
                 .build());

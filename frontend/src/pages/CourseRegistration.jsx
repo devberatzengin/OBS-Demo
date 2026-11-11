@@ -43,6 +43,10 @@ const CourseRegistration = () => {
 
   const toggle = (course) => {
     if (course.registered) return;
+    if (course.passed) {
+      toast.info('Already passed', `You passed ${course.code} with ${course.grade}. Only DD and DC can be retaken.`);
+      return;
+    }
     if (isSelected(course)) {
       if (course.mandatory) {
         toast.info('This course is required', 'You failed it previously, so it must be retaken.');
@@ -64,9 +68,7 @@ const CourseRegistration = () => {
     if (newCourses.length === 0) return;
     setSubmitting(true);
     try {
-      for (const course of newCourses) {
-        await CourseService.registerCourse(course.id);
-      }
+      await CourseService.enroll(newCourses.map((c) => c.id));
       toast.success('Registration submitted', `${newCourses.length} course(s) sent for advisor approval.`);
       setSelected([]);
       await load();
@@ -147,13 +149,15 @@ const CourseRegistration = () => {
               {visible.map((c) => {
                 const sel = isSelected(c);
                 const pending = c.registered && c.status === 'PENDING';
+                const locked = c.registered || c.passed;
                 return (
                   <li
                     key={c.id}
                     onClick={() => toggle(c)}
                     className={cn(
                       'flex items-center gap-4 px-4 py-3.5 transition-colors',
-                      c.registered ? 'cursor-default' : 'cursor-pointer hover:bg-surface-hover/60',
+                      locked ? 'cursor-default' : 'cursor-pointer hover:bg-surface-hover/60',
+                      c.passed && 'opacity-60',
                       sel && 'bg-accent-soft/60 hover:bg-accent-soft',
                     )}
                   >
@@ -161,11 +165,11 @@ const CourseRegistration = () => {
                     <div
                       className={cn(
                         'flex size-5 shrink-0 items-center justify-center rounded-md border',
-                        c.registered ? 'border-border bg-surface-muted text-fg-subtle'
+                        locked ? 'border-border bg-surface-muted text-fg-subtle'
                           : sel ? 'border-accent bg-accent text-accent-fg' : 'border-border-strong bg-surface',
                       )}
                     >
-                      {c.registered ? <Lock className="size-3" /> : sel && <Check className="size-3.5" />}
+                      {locked ? <Lock className="size-3" /> : sel && <Check className="size-3.5" />}
                     </div>
 
                     <div className="min-w-0 flex-1">
@@ -174,6 +178,9 @@ const CourseRegistration = () => {
                         {c.mandatory && !c.registered && <Badge tone="warning" icon={TriangleAlert}>Required retake</Badge>}
                         {pending && <Badge tone="warning" icon={Clock}>Awaiting approval</Badge>}
                         {c.registered && !pending && <Badge tone="success" icon={Check}>Enrolled</Badge>}
+                        {c.status === 'REJECTED' && !c.registered && <Badge tone="danger" icon={X}>Rejected</Badge>}
+                        {c.passed && <Badge tone="neutral">Passed · {c.grade}</Badge>}
+                        {!c.passed && !c.mandatory && c.grade && <Badge tone="accent">Retake to raise {c.grade}</Badge>}
                       </div>
                       <p className="mt-0.5 truncate text-sm font-medium">{c.name}</p>
                       <p className="truncate text-xs text-fg-subtle">{c.instructorName}</p>

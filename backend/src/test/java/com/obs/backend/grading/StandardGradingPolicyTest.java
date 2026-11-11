@@ -41,4 +41,14 @@ class StandardGradingPolicyTest {
         assertThat(policy.pointsFor("N/A")).isNull();
         assertThat(policy.pointsFor(null)).isNull();
     }
+
+    @org.junit.jupiter.api.Test
+    void onlyFailsAndLowPassesMayBeRetaken() {
+        assertThat(policy.mayRetake("FF")).isTrue();
+        assertThat(policy.mayRetake("DD")).isTrue();
+        assertThat(policy.mayRetake("DC")).isTrue();
+        assertThat(policy.mayRetake("FD")).isFalse();
+        assertThat(policy.mayRetake("CC")).isFalse();
+        assertThat(policy.mayRetake("AA")).isFalse();
+    }
 }

@@ -13,7 +13,18 @@ public enum ErrorCode {
     ALREADY_EXISTS("OBS-006", "Resource Already Exists"),
     CONFLICT("OBS-007", "Conflict"),
     METHOD_NOT_ALLOWED("OBS-008", "Method Not Allowed"),
-    TOO_MANY_REQUESTS("OBS-009", "Too Many Requests");
+    TOO_MANY_REQUESTS("OBS-009", "Too Many Requests"),
+
+    // Course registration rules (plan 3.1); one code per rule so the client can tell them apart
+    REGISTRATION_CLOSED("OBS-101", "Registration Closed"),
+    COURSE_NOT_OPEN("OBS-102", "Course Not Open"),
+    COURSE_NOT_IN_DEPARTMENT("OBS-103", "Course Not In Department"),
+    ALREADY_REGISTERED("OBS-104", "Already Registered"),
+    COURSE_ALREADY_PASSED("OBS-105", "Course Already Passed"),
+    MANDATORY_COURSE_MISSING("OBS-106", "Mandatory Course Missing"),
+    AKTS_LIMIT_EXCEEDED("OBS-107", "AKTS Limit Exceeded"),
+    SCHEDULE_CONFLICT("OBS-108", "Schedule Conflict"),
+    QUOTA_FULL("OBS-109", "Quota Full");
 
     private final String code;
     private final String name;

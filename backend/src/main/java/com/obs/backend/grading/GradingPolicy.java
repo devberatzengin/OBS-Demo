@@ -15,6 +15,12 @@ public interface GradingPolicy {
     /** Whether the letter means the course was failed and has to be taken again. */
     boolean isFailing(String letter);
 
+    /**
+     * Whether a course finished with this letter may be registered again: always after a fail,
+     * and for low passing letters that the regulation lets students raise.
+     */
+    boolean mayRetake(String letter);
+
     default boolean isKnownLetter(String letter) {
         return pointsFor(letter) != null;
     }

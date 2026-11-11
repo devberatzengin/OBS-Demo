@@ -80,6 +80,9 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 | K4 | Kullanıcı silme | (a) kalıcı (b) pasife alma | (b) | (b) — 11 Kasım |
 | K5 | Tekrar alınan derste hangi not, hangi harfler başarısız? | son / en yüksek; FF veya FF+FD | son not; harfler üniversite yönetmeliğine göre || son not; sadece FF başarısız — 11 Kasım |
 | K6 | Akademisyen "New course" formu | (a) öneri ucu + admin onayı (b) formu kaldır | (b) | |
+| K7 | Geçilen derse tekrar kayıt | engelle / DD-DC yükseltme / serbest | DD-DC yükseltme | DD ve DC tekrar alınabilir, CC ve üstü kapalı — 11 Kasım |
+| K8 | Boş veya 0 kontenjan | sınırsız / varsayılan 40 | sınırsız | sınırsız — 11 Kasım |
+| K9 | Kayıt tarihleri girilmemiş dönem | açık / kapalı | açık | açık; girilen tarih sınırı uygulanır — 11 Kasım |
 
 ### Çalışma kuralları
 
@@ -192,10 +195,10 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 ### Faz 3: Kayıt kuralları ve veri bütünlüğü
 
 **3.1 Tek kayıt yolu**
-- [ ] `registerCourse` ve `enrollCourses` aynı `EnrollmentValidator` zinciri
-- [ ] Kurallar: kayıt dönemi, ders açık, bölüm, zaten kayıtlı, geçilmiş, zorunlu tekrar, AKTS ≤ 30, çakışma, kontenjan
-- [ ] Her kural kendi hata kodu (`REGISTRATION_CLOSED`, `QUOTA_FULL`…); frontend mesajı
-- [ ] `getAvailableCourses` sadece açık dersler + kontenjan durumu
+- [x] `registerCourse` ve `enrollCourses` aynı `EnrollmentValidator` zinciri
+- [x] Kurallar: kayıt dönemi, ders açık, bölüm, zaten kayıtlı, geçilmiş, zorunlu tekrar, AKTS ≤ 30, çakışma, kontenjan
+- [x] Her kural kendi hata kodu (`REGISTRATION_CLOSED`, `QUOTA_FULL`…); frontend mesajı
+- [x] `getAvailableCourses` sadece açık dersler + kontenjan durumu
 - Test: her kurala bir negatif senaryo; iki yol aynı cevap.
 
 **3.2 Kontenjan ve eşzamanlılık**

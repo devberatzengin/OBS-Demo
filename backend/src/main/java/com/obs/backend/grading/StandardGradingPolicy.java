@@ -50,4 +50,10 @@ public class StandardGradingPolicy implements GradingPolicy {
     public boolean isFailing(String letter) {
         return "FF".equals(letter);
     }
+
+    /** FF must be retaken; DD and DC may be retaken to raise the grade (plan decision K7). */
+    @Override
+    public boolean mayRetake(String letter) {
+        return isFailing(letter) || "DD".equals(letter) || "DC".equals(letter);
+    }
 }
