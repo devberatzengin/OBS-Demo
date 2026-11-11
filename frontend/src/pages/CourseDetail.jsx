@@ -76,7 +76,7 @@ function StudentsTab({ students }) {
                       <span className={cn('w-10 text-right text-xs tabular-nums', rate < 70 ? 'text-danger' : 'text-fg-muted')}>{rate}%</span>
                     </div>
                   </TD>
-                  <TD className={cn('text-right font-medium tabular-nums', (s.gpa ?? 0) < 2 && 'text-danger')}>
+                  <TD className={cn('text-right font-medium tabular-nums', s.gpa != null && s.gpa < 2 && 'text-danger')}>
                     {s.gpa != null ? s.gpa.toFixed(2) : '—'}
                   </TD>
                 </TR>

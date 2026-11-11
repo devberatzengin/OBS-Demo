@@ -173,9 +173,9 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Test: sadece vize → harf null; eksikle finalize 400; tamla harfler atanır.
 
 **2.3 GPA tek kaynaktan**
-- [ ] Kesinleştirme sonrası `Student.gpa` `GpaCalculator` ile güncellenir
-- [ ] Dashboard, danışman listesi, risk etiketi, transkript aynı değer
-- [ ] Seed'deki sabit GPA'lar kaldırılır
+- [x] Kesinleştirme sonrası `Student.gpa` `GpaCalculator` ile güncellenir
+- [x] Dashboard, danışman listesi, risk etiketi, transkript aynı değer
+- [x] Seed'deki sabit GPA'lar kaldırılır
 - Test: dashboard GPA = transkript GNO.
 
 **2.4 Zorunlu tekrar kuralı**

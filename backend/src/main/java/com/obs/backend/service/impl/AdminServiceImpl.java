@@ -403,7 +403,6 @@ public class AdminServiceImpl implements AdminService {
                 .department(dept)
                 .advisor(advisor)
                 .currentSemester(1)
-                .gpa(0.0)
                 .build();
 
         studentRepository.save(student);

@@ -6,6 +6,7 @@ import com.obs.backend.exception.ObsException;
 import com.obs.backend.model.*;
 import com.obs.backend.model.enums.EnrollmentStatus;
 import com.obs.backend.grading.GradingPolicy;
+import com.obs.backend.grading.StudentGpaRecalculator;
 import com.obs.backend.repository.*;
 import com.obs.backend.service.AcademicianService;
 import com.obs.backend.service.LoggingService;
@@ -41,6 +42,7 @@ public class AcademicianServiceImpl implements AcademicianService {
     private final OfficeHourRepository officeHourRepository;
     private final NotificationRepository notificationRepository;
     private final GradingPolicy gradingPolicy;
+    private final StudentGpaRecalculator studentGpaRecalculator;
     private final LoggingService loggingService;
 
     @Override
@@ -211,7 +213,7 @@ public class AcademicianServiceImpl implements AcademicianService {
                         .firstName(student.getFirstName())
                         .lastName(student.getLastName())
                         .gpa(student.getGpa())
-                        .isAtRisk(student.getGpa() < 2.0)
+                        .isAtRisk(student.getGpa() != null && student.getGpa() < 2.0)
                         .departmentName(student.getDepartment().getName())
                         .currentSemester(student.getCurrentSemester())
                         .build())
@@ -453,6 +455,8 @@ public class AcademicianServiceImpl implements AcademicianService {
                     .build());
         }
 
+        studentGpaRecalculator.recalculateAll(toFinalize);
+
         loggingService.log("GRADES_FINALIZED",
                 course.getCode() + " " + semester.getName() + ": " + toFinalize.size() + " students",
                 getCurrentAcademician().getUsername(), "Course", String.valueOf(courseId));
@@ -489,6 +493,7 @@ public class AcademicianServiceImpl implements AcademicianService {
         double newScore = recalculateScore(enrollment);
         enrollment.setGrade(gradingPolicy.letterFor(newScore));
         enrollmentRepository.save(enrollment);
+        studentGpaRecalculator.recalculate(enrollment.getStudent());
 
         notificationRepository.save(Notification.builder()
                 .user(enrollment.getStudent())

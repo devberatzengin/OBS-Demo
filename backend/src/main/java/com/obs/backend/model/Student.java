@@ -36,8 +36,8 @@ public class Student extends User {
     @Builder.Default
     private Integer currentSemester = 1;
     
-    @Builder.Default
-    private Double gpa = 0.0;
+    /** Cumulative GPA (GNO), kept in sync by StudentGpaRecalculator; null until a grade counts. */
+    private Double gpa;
     
     private LocalDate registrationDate;
 

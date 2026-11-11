@@ -39,7 +39,7 @@ VALUES ('2024002', '$2a$10$JipyxFF0pN/1KoeXCIIl0u76fevEbpFVLMFwueCGh1H58T.HgEXNS
 INSERT INTO students (id, student_number, department_id, advisor_id, gpa, current_semester) 
 VALUES ((SELECT id FROM users WHERE username = '2024001'), '2024001', 
         (SELECT id FROM departments WHERE name = 'Bilgisayar Mühendisliği'), 
-        (SELECT id FROM academicians WHERE staff_number = 'EMP001'), 3.45, 2);
+        (SELECT id FROM academicians WHERE staff_number = 'EMP001'), NULL, 2);
 
 -- 4b. YÖNETİCİ VE PERSONEL (Şifre: password123)
 INSERT INTO users (username, password, email, first_name, last_name, role, is_active)
@@ -109,3 +109,28 @@ VALUES ((SELECT id FROM users WHERE username = 'hocam01'), (SELECT id FROM users
 UPDATE enrollments
 SET grade_finalized_at = now()
 WHERE grade IN ('AA', 'BA', 'BB', 'CB', 'CC', 'DC', 'DD', 'FD', 'FF');
+
+-- 13. GNO: Student.gpa transkriptle aynı kuralla hesaplanır (plan 2.3):
+--     her dersin son kesinleşmiş, onaylı denemesi; AKTS ağırlıklı; hiç not yoksa NULL
+UPDATE students s
+SET gpa = (
+    SELECT SUM(p.points * p.akts) / NULLIF(SUM(p.akts), 0)
+    FROM (
+        SELECT DISTINCT ON (e.course_id)
+               c.akts,
+               CASE e.grade
+                   WHEN 'AA' THEN 4.0 WHEN 'BA' THEN 3.5 WHEN 'BB' THEN 3.0 WHEN 'CB' THEN 2.5
+                   WHEN 'CC' THEN 2.0 WHEN 'DC' THEN 1.5 WHEN 'DD' THEN 1.0 WHEN 'FD' THEN 0.5
+                   WHEN 'FF' THEN 0.0
+               END AS points
+        FROM enrollments e
+        JOIN courses c ON c.id = e.course_id
+        JOIN semesters sem ON sem.id = e.semester_id
+        WHERE e.student_id = s.id
+          AND e.status = 'APPROVED'
+          AND e.grade_finalized_at IS NOT NULL
+          AND e.grade IN ('AA', 'BA', 'BB', 'CB', 'CC', 'DC', 'DD', 'FD', 'FF')
+          AND c.akts > 0
+        ORDER BY e.course_id, sem.start_date DESC NULLS LAST, sem.id DESC
+    ) p
+);
