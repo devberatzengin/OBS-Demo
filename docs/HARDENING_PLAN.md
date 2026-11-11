@@ -274,3 +274,11 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - 1.4: Oturumsuz isteklere artık 403 yerine 401 dönüyor. Frontend'in "401'de oturumu kapat" mantığı daha önce hiç tetiklenmiyordu. Ayrıca yanlış şifre girildiğinde login sayfasının yeniden yüklenip hata mesajını silmesi düzeltildi.
 - 1.5: Analizdeki "herkes her mesajı okundu yapabiliyor" bulgusu abartılıydı: `markAsRead`'i çağıran bir HTTP ucu yoktu. Yine de servis seviyesinde sahiplik kontrolü eklendi.
 - 1.6: Bucket4j yerine bağımlılıksız bir in-memory limiter yazıldı (tek instance için yeterli; ölçeklenirse Redis gerekir). IP limiti dakikada 5 değil 20, çünkü kampüs ağında birçok kullanıcı aynı IP'yi paylaşır.
+
+**3. oturum (11 Kasım 2026)**: 2.1–2.5 `hardening` branch'inde, alt faz başına bir commit. K1 = hoca kesinleştirince, K2 = kesinleşince hesapla ve sakla, K5 = son alınan not; sadece FF başarısız. Bu kod da derlenmeden yazıldı.
+- 2.2: Şema değişikliği `V2__grade_finalization.sql` (`enrollments.grade_finalized_at`). V1'de harfi olan eski kayıtlar kesinleşmiş sayılıyor; `'N/A'` harfleri NULL'a çekiliyor. Kesinleşmiş notu düzeltme ayrı uç: `POST /api/academician/exams/{examId}/grade-corrections` (gerekçe en az 10 karakter, audit log'a eski → yeni yazılıyor).
+- 2.3: Seed'deki sabit 3.45 kaldırıldı; seed GPA'yı SQL'de aynı kuralla hesaplıyor. Seed öğrencisinin (2024001) gerçek GNO'su 1.59 (MAT101 FF, CSE101 BA), bu yüzden dashboard'da artık "riskli" uyarısı görünüyor. Bu doğru davranış.
+- 2.3: Not girilmemiş öğrencinin GPA'sı artık 0.00 yerine "—" (null); danışman listesinde riskli sayılmıyor.
+- 2.4: Bu dönem zaten kaydolunan (reddedilmemiş) tekrar dersi zorunluluğu karşılıyor. Tek ders kaydı ucu (`register-course/{id}`) hâlâ zorunlu ders kontrolü yapmıyor; iki kayıt yolu 3.1'de birleşecek.
+- 2.5: Ağırlığı değişen sınavda öğrencilerin ara toplam puanı yeniden hesaplanıyor (planda yoktu, ağırlık değişince puanın eskimemesi için eklendi). Boş not listesi göndermek artık 400.
+- Bilinen eksik: yoklama hâlâ `findByCourseIdAndStudentId` kullanıyor; dersi tekrar alan öğrencide iki kayıt olunca belirsiz. 3. fazda ele alınmalı.
