@@ -25,7 +25,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
+    // 401 = missing, expired or deactivated session. A failed sign-in is also 401 but must stay on the page.
+    const isLoginRequest = error.config?.url?.includes('/auth/login');
+    if (error.response && error.response.status === 401 && !isLoginRequest) {
       localStorage.removeItem('obs_user');
       localStorage.removeItem('obs_token');
       window.location.href = '/login';

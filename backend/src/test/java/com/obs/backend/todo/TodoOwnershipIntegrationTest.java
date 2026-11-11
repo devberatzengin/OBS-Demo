@@ -91,6 +91,6 @@ class TodoOwnershipIntegrationTest extends AbstractIntegrationTest {
     @Test
     void requestsWithoutTokenAreRejected() throws Exception {
         mockMvc.perform(delete("/api/todos/" + aliceTodo.getId()))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 }

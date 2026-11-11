@@ -37,8 +37,8 @@ class SecurityConfigIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void corsPreflightRejectsUnknownOriginOnMessaging() throws Exception {
-        mockMvc.perform(options("/api/messaging/contacts")
+    void corsPreflightRejectsUnknownOriginOnChat() throws Exception {
+        mockMvc.perform(options("/api/chat/conversations")
                         .header(HttpHeaders.ORIGIN, "https://evil.example")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
                 .andExpect(status().isForbidden());
@@ -47,7 +47,7 @@ class SecurityConfigIntegrationTest extends AbstractIntegrationTest {
     @Test
     void h2ConsoleIsNotPublic() throws Exception {
         mockMvc.perform(get("/h2-console/"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

@@ -18,7 +18,7 @@ public class JwtUtils {
     @Value("${obs.app.jwtSecret}")
     private String jwtSecret;
 
-    @Value("${obs.app.jwtExpirationMs:86400000}")
+    @Value("${obs.app.jwtExpirationMs:28800000}")
     private int jwtExpirationMs;
 
     /** HS256 needs a key of at least 256 bits; refuse to start with a weak or missing secret. */

@@ -141,8 +141,8 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Test: personel × kullanıcı uçları matrisi; admin kendini silemez (400).
 
 **1.4 Pasif kullanıcı ve token**
-- [ ] `AuthTokenFilter`: `isEnabled()` false ise auth kurma
-- [ ] Token süresi 24 → 8 saat (property)
+- [x] `AuthTokenFilter`: `isEnabled()` false ise auth kurma
+- [x] Token süresi 24 → 8 saat (property)
 - Test: pasife alınan kullanıcının token'ı 401.
 
 **1.5 Akademisyen ve mesaj sahipliği**
