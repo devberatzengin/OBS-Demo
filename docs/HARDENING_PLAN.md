@@ -216,10 +216,10 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Test: repository ile mükerrer kayıt → 409.
 
 **3.4 Optimistic locking ve validasyon**
-- [ ] `@Version`: Enrollment, Grade, Course, Semester (Flyway V4)
-- [ ] Optimistic lock hatası → 409
-- [ ] Tüm request DTO'lara Bean Validation + `@Valid`; alan bazlı hata listesi; frontend alan altında gösterir
-- [ ] Harf notu enum
+- [x] `@Version`: Enrollment, Grade, Course, Semester (Flyway V4)
+- [x] Optimistic lock hatası → 409
+- [x] Tüm request DTO'lara Bean Validation + `@Valid`; alan bazlı hata listesi; frontend alan altında gösterir
+- [x] Harf notu enum yerine DB check constraint (not: oturum 4)
 - Test: geçersiz DTO 400 + alan listesi; eski versiyonla güncelleme 409.
 
 ### Faz 4: Yetki matrisi ve performans

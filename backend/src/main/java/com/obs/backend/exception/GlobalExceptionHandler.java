@@ -3,6 +3,7 @@ package com.obs.backend.exception;
 import com.obs.backend.dto.error.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -30,22 +33,44 @@ public class GlobalExceptionHandler {
             case RESOURCE_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case AUTHENTICATION_FAILED -> HttpStatus.UNAUTHORIZED;
             case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
-            case ALREADY_EXISTS, BAD_REQUEST, VALIDATION_ERROR,
+            case BAD_REQUEST, VALIDATION_ERROR,
                  COURSE_NOT_OPEN, COURSE_NOT_IN_DEPARTMENT, COURSE_ALREADY_PASSED,
                  MANDATORY_COURSE_MISSING, AKTS_LIMIT_EXCEEDED, SCHEDULE_CONFLICT -> HttpStatus.BAD_REQUEST;
-            case CONFLICT, REGISTRATION_CLOSED, ALREADY_REGISTERED, QUOTA_FULL -> HttpStatus.CONFLICT;
+            case CONFLICT, ALREADY_EXISTS, REGISTRATION_CLOSED, ALREADY_REGISTERED, QUOTA_FULL -> HttpStatus.CONFLICT;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
         log.warn("{} {}: {}", status.value(), ex.getErrorCode().getCode(), ex.getDescription());
         return build(status, ex.getErrorCode(), ex.getDescription(), null);
     }
 
+    /** Bean Validation failed: one message per field, so the client can show it under the input. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException ex) {
-        String description = ex.getBindingResult().getFieldErrors().stream()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
+        ex.getBindingResult().getFieldErrors()
+                .forEach(error -> fieldErrors.putIfAbsent(error.getField(), error.getDefaultMessage()));
+        ex.getBindingResult().getGlobalErrors()
+                .forEach(error -> fieldErrors.putIfAbsent(error.getObjectName(), error.getDefaultMessage()));
+
+        String description = fieldErrors.entrySet().stream()
+                .map(e -> e.getKey() + ": " + e.getValue())
                 .collect(Collectors.joining(", "));
-        return build(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR, description, null);
+        ErrorResponse body = ErrorResponse.builder()
+                .errorCode(ErrorCode.VALIDATION_ERROR.getCode())
+                .errorName(ErrorCode.VALIDATION_ERROR.getName())
+                .description(description)
+                .fieldErrors(fieldErrors)
+                .timestamp(LocalDateTime.now())
+                .build();
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
+    /** Someone else saved the same row first (@Version); the client should reload and retry. */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(OptimisticLockingFailureException ex) {
+        log.warn("409 optimistic lock: {}", ex.getMessage());
+        return build(HttpStatus.CONFLICT, ErrorCode.CONFLICT,
+                "This record was changed by someone else in the meantime. Reload and try again.", null);
     }
 
     @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})

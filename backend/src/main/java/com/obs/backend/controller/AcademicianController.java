@@ -1,5 +1,7 @@
 package com.obs.backend.controller;
 
+import jakarta.validation.Valid;
+
 import com.obs.backend.dto.academician.*;
 import com.obs.backend.model.Exam;
 import com.obs.backend.service.AcademicianService;
@@ -24,7 +26,7 @@ public class AcademicianController {
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<Void> updateProfile(java.security.Principal principal, @RequestBody com.obs.backend.dto.user.UpdateProfileRequest request) {
+    public ResponseEntity<Void> updateProfile(java.security.Principal principal, @Valid @RequestBody com.obs.backend.dto.user.UpdateProfileRequest request) {
         academicianService.updateProfile(principal.getName(), request);
         return ResponseEntity.ok().build();
     }
@@ -45,7 +47,7 @@ public class AcademicianController {
     }
 
     @PutMapping("/courses/{courseId}/syllabus")
-    public ResponseEntity<Void> updateCourseSyllabus(@PathVariable Long courseId, @RequestBody CourseSyllabusRequest request) {
+    public ResponseEntity<Void> updateCourseSyllabus(@PathVariable Long courseId, @Valid @RequestBody CourseSyllabusRequest request) {
         academicianService.updateCourseSyllabus(courseId, request);
         return ResponseEntity.ok().build();
     }
@@ -62,13 +64,13 @@ public class AcademicianController {
 
     // Phase 2 Endpoints
     @PostMapping("/courses/{courseId}/exams")
-    public ResponseEntity<Void> createExam(@PathVariable Long courseId, @RequestBody ExamRequest request) {
+    public ResponseEntity<Void> createExam(@PathVariable Long courseId, @Valid @RequestBody ExamRequest request) {
         academicianService.createExam(courseId, request);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/exams/{examId}")
-    public ResponseEntity<Void> updateExam(@PathVariable Long examId, @RequestBody ExamRequest request) {
+    public ResponseEntity<Void> updateExam(@PathVariable Long examId, @Valid @RequestBody ExamRequest request) {
         academicianService.updateExam(examId, request);
         return ResponseEntity.ok().build();
     }
@@ -90,7 +92,7 @@ public class AcademicianController {
     }
 
     @PostMapping("/exams/{examId}/grades")
-    public ResponseEntity<Void> enterGrades(@PathVariable Long examId, @RequestBody GradeEntryRequest request) {
+    public ResponseEntity<Void> enterGrades(@PathVariable Long examId, @Valid @RequestBody GradeEntryRequest request) {
         academicianService.enterGrades(examId, request);
         return ResponseEntity.ok().build();
     }
@@ -102,13 +104,13 @@ public class AcademicianController {
 
     @PostMapping("/exams/{examId}/grade-corrections")
     public ResponseEntity<Void> correctFinalizedGrade(@PathVariable Long examId,
-                                                      @RequestBody com.obs.backend.dto.academician.GradeCorrectionRequest request) {
+                                                      @Valid @RequestBody com.obs.backend.dto.academician.GradeCorrectionRequest request) {
         academicianService.correctFinalizedGrade(examId, request);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/courses/{courseId}/attendance")
-    public ResponseEntity<Void> recordAttendance(@PathVariable Long courseId, @RequestBody AttendanceEntryRequest request) {
+    public ResponseEntity<Void> recordAttendance(@PathVariable Long courseId, @Valid @RequestBody AttendanceEntryRequest request) {
         academicianService.recordAttendance(courseId, request);
         return ResponseEntity.ok().build();
     }
@@ -119,13 +121,13 @@ public class AcademicianController {
     }
 
     @PutMapping("/courses/{courseId}/open")
-    public ResponseEntity<Void> openCourse(@PathVariable Long courseId, @RequestBody CourseOpenRequest request) {
+    public ResponseEntity<Void> openCourse(@PathVariable Long courseId, @Valid @RequestBody CourseOpenRequest request) {
         academicianService.openCourse(courseId, request);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/advisees/{studentId}/message")
-    public ResponseEntity<Void> sendMessageToAdvisee(@PathVariable Long studentId, @RequestBody AdviseeMessageRequest request) {
+    public ResponseEntity<Void> sendMessageToAdvisee(@PathVariable Long studentId, @Valid @RequestBody AdviseeMessageRequest request) {
         academicianService.sendMessageToAdvisee(studentId, request);
         return ResponseEntity.ok().build();
     }
@@ -149,7 +151,7 @@ public class AcademicianController {
     }
 
     @PostMapping("/courses/{courseId}/announcements")
-    public ResponseEntity<Void> postAnnouncement(@PathVariable Long courseId, @RequestBody AnnouncementRequest request) {
+    public ResponseEntity<Void> postAnnouncement(@PathVariable Long courseId, @Valid @RequestBody AnnouncementRequest request) {
         academicianService.postAnnouncement(courseId, request);
         return ResponseEntity.ok().build();
     }
@@ -160,7 +162,7 @@ public class AcademicianController {
     }
 
     @PostMapping("/office-hours")
-    public ResponseEntity<Void> setOfficeHours(@RequestBody List<OfficeHourRequest> requests) {
+    public ResponseEntity<Void> setOfficeHours(@Valid @RequestBody List<OfficeHourRequest> requests) {
         academicianService.setOfficeHours(requests);
         return ResponseEntity.ok().build();
     }

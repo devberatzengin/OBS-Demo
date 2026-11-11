@@ -1,5 +1,7 @@
 package com.obs.backend.controller;
 
+import jakarta.validation.Valid;
+
 import com.obs.backend.dto.admin.AdminAcademicianRegisterRequest;
 import com.obs.backend.dto.admin.AdminAdministrativeRegisterRequest;
 import com.obs.backend.dto.admin.AdminStudentRegisterRequest;
@@ -21,20 +23,20 @@ public class AdminUserController {
     private final AdminService adminService;
 
     @PostMapping("/students")
-    public ResponseEntity<String> registerStudent(@RequestBody AdminStudentRegisterRequest request) {
+    public ResponseEntity<String> registerStudent(@Valid @RequestBody AdminStudentRegisterRequest request) {
         adminService.registerStudent(request);
         return ResponseEntity.ok("Student registered successfully");
     }
 
     @PostMapping("/academicians")
-    public ResponseEntity<String> registerAcademician(@RequestBody AdminAcademicianRegisterRequest request) {
+    public ResponseEntity<String> registerAcademician(@Valid @RequestBody AdminAcademicianRegisterRequest request) {
         adminService.registerAcademician(request);
         return ResponseEntity.ok("Academician registered successfully");
     }
 
     @PostMapping("/administrative")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<String> registerAdministrative(@RequestBody com.obs.backend.dto.admin.AdminAdministrativeRegisterRequest request) {
+    public ResponseEntity<String> registerAdministrative(@Valid @RequestBody com.obs.backend.dto.admin.AdminAdministrativeRegisterRequest request) {
         adminService.registerAdministrative(request);
         return ResponseEntity.ok("Administrative staff registered successfully");
     }
@@ -61,20 +63,20 @@ public class AdminUserController {
     }
 
     @PutMapping("/students/{id}")
-    public ResponseEntity<String> updateStudent(@PathVariable Long id, @RequestBody AdminStudentRegisterRequest request) {
+    public ResponseEntity<String> updateStudent(@PathVariable Long id, @Valid @RequestBody AdminStudentRegisterRequest request) {
         adminService.updateStudent(id, request);
         return ResponseEntity.ok("Student updated successfully");
     }
 
     @PutMapping("/academicians/{id}")
-    public ResponseEntity<String> updateAcademician(@PathVariable Long id, @RequestBody AdminAcademicianRegisterRequest request) {
+    public ResponseEntity<String> updateAcademician(@PathVariable Long id, @Valid @RequestBody AdminAcademicianRegisterRequest request) {
         adminService.updateAcademician(id, request);
         return ResponseEntity.ok("Academician updated successfully");
     }
 
     @PutMapping("/administrative/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<String> updateAdministrative(@PathVariable Long id, @RequestBody com.obs.backend.dto.admin.AdminAdministrativeRegisterRequest request) {
+    public ResponseEntity<String> updateAdministrative(@PathVariable Long id, @Valid @RequestBody com.obs.backend.dto.admin.AdminAdministrativeRegisterRequest request) {
         adminService.updateAdministrative(id, request);
         return ResponseEntity.ok("Staff updated successfully");
     }
@@ -100,7 +102,7 @@ public class AdminUserController {
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<String> updateProfile(java.security.Principal principal, @RequestBody com.obs.backend.dto.admin.AdminProfileDTO profileDTO) {
+    public ResponseEntity<String> updateProfile(java.security.Principal principal, @Valid @RequestBody com.obs.backend.dto.admin.AdminProfileDTO profileDTO) {
         adminService.updateAdminProfile(principal.getName(), profileDTO);
         return ResponseEntity.ok("Profile updated successfully");
     }

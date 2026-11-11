@@ -1,5 +1,7 @@
 package com.obs.backend.dto.admin;
 
+import jakarta.validation.constraints.*;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,6 +13,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class SemesterDTO {
     private Long id;
+    @NotBlank @Size(max = 255)
     private String name;
     private java.time.LocalDate startDate;
     private java.time.LocalDate endDate;

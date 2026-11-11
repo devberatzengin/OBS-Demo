@@ -1,5 +1,9 @@
 package com.obs.backend.dto.academician;
 
+import jakarta.validation.Valid;
+
+import jakarta.validation.constraints.*;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,7 +17,9 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class AttendanceEntryRequest {
+    @NotNull
     private LocalDate attendanceDate;
+    @NotEmpty @Valid
     private List<StudentAttendanceDTO> attendance;
 
     @Data
@@ -21,6 +27,7 @@ public class AttendanceEntryRequest {
     @AllArgsConstructor
     @Builder
     public static class StudentAttendanceDTO {
+        @NotNull
         private Long studentId;
         private boolean isPresent;
     }

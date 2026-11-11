@@ -1,5 +1,7 @@
 package com.obs.backend.controller;
 
+import jakarta.validation.Valid;
+
 import com.obs.backend.dto.student.TodoDTO;
 import com.obs.backend.service.TodoService;
 import lombok.RequiredArgsConstructor;
@@ -22,12 +24,12 @@ public class TodoController {
     }
 
     @PostMapping
-    public ResponseEntity<TodoDTO> addTodo(@RequestBody TodoDTO todoDTO, Principal principal) {
+    public ResponseEntity<TodoDTO> addTodo(@Valid @RequestBody TodoDTO todoDTO, Principal principal) {
         return ResponseEntity.ok(todoService.addTodo(principal.getName(), todoDTO));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<TodoDTO> updateTodo(@PathVariable Long id, @RequestBody TodoDTO todoDTO, Principal principal) {
+    public ResponseEntity<TodoDTO> updateTodo(@PathVariable Long id, @Valid @RequestBody TodoDTO todoDTO, Principal principal) {
         return ResponseEntity.ok(todoService.updateTodo(principal.getName(), id, todoDTO));
     }
 

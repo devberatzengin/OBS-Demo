@@ -1,5 +1,7 @@
 package com.obs.backend.controller;
 
+import jakarta.validation.Valid;
+
 import com.obs.backend.dto.chat.*;
 import com.obs.backend.service.ChatService;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +27,7 @@ public class ChatController {
     }
 
     @PostMapping("/send")
-    public ResponseEntity<Void> sendMessage(@RequestBody SendMessageRequest request) {
+    public ResponseEntity<Void> sendMessage(@Valid @RequestBody SendMessageRequest request) {
         chatService.sendMessage(request);
         return ResponseEntity.ok().build();
     }

@@ -1,5 +1,7 @@
 package com.obs.backend.dto.auth;
 
+import jakarta.validation.constraints.*;
+
 import com.obs.backend.model.enums.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -12,6 +14,7 @@ public class RegisterRequest {
     private String username;
 
     @NotBlank(message = "Password is required")
+    @Size(min = 8, max = 72)
     private String password;
 
     @NotBlank(message = "Email is required")

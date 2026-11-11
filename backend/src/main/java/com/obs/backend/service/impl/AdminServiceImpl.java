@@ -390,7 +390,7 @@ public class AdminServiceImpl implements AdminService {
         }
 
         // 2. Encryption
-        String encodedPassword = passwordEncoder.encode(request.getPassword());
+        String encodedPassword = passwordEncoder.encode(requireInitialPassword(request.getPassword()));
 
         // 3. Create Student Entity (Inheritance: Joined)
         Student student = Student.builder()
@@ -423,7 +423,7 @@ public class AdminServiceImpl implements AdminService {
                 .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Department not found"));
 
         // 2. Encryption
-        String encodedPassword = passwordEncoder.encode(request.getPassword());
+        String encodedPassword = passwordEncoder.encode(requireInitialPassword(request.getPassword()));
 
         // 3. Create Academician Entity
         Academician academician = Academician.builder()
@@ -450,7 +450,7 @@ public class AdminServiceImpl implements AdminService {
             throw new ObsException(ErrorCode.ALREADY_EXISTS, "Username is already taken");
         }
 
-        String encodedPassword = passwordEncoder.encode(request.getPassword());
+        String encodedPassword = passwordEncoder.encode(requireInitialPassword(request.getPassword()));
 
         Administrative administrative = Administrative.builder()
                 .username(request.getUsername())
@@ -750,5 +750,13 @@ public class AdminServiceImpl implements AdminService {
                 .instructorName(c.getInstructor() != null ? 
                     c.getInstructor().getAcademicTitle() + " " + c.getInstructor().getFirstName() + " " + c.getInstructor().getLastName() : "Unassigned")
                 .build();
+    }
+
+    /** A new account needs a password; the DTO only checks its length because updates may leave it empty. */
+    private static String requireInitialPassword(String password) {
+        if (password == null || password.isBlank()) {
+            throw new ObsException(ErrorCode.VALIDATION_ERROR, "password: is required for a new account");
+        }
+        return password;
     }
 }

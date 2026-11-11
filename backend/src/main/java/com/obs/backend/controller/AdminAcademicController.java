@@ -1,5 +1,7 @@
 package com.obs.backend.controller;
 
+import jakarta.validation.Valid;
+
 import com.obs.backend.dto.admin.AdminCourseDTO;
 import com.obs.backend.dto.admin.SemesterDTO;
 import com.obs.backend.service.AdminService;
@@ -26,12 +28,12 @@ public class AdminAcademicController {
     }
 
     @PostMapping("/semesters")
-    public ResponseEntity<SemesterDTO> createSemester(@RequestBody SemesterDTO semesterDTO) {
+    public ResponseEntity<SemesterDTO> createSemester(@Valid @RequestBody SemesterDTO semesterDTO) {
         return ResponseEntity.ok(adminService.createSemester(semesterDTO));
     }
 
     @PutMapping("/semesters/{id}")
-    public ResponseEntity<SemesterDTO> updateSemester(@PathVariable Long id, @RequestBody SemesterDTO semesterDTO) {
+    public ResponseEntity<SemesterDTO> updateSemester(@PathVariable Long id, @Valid @RequestBody SemesterDTO semesterDTO) {
         return ResponseEntity.ok(adminService.updateSemester(id, semesterDTO));
     }
 
@@ -49,12 +51,12 @@ public class AdminAcademicController {
     }
 
     @PostMapping("/courses")
-    public ResponseEntity<AdminCourseDTO> createCourse(@RequestBody AdminCourseDTO courseDTO) {
+    public ResponseEntity<AdminCourseDTO> createCourse(@Valid @RequestBody AdminCourseDTO courseDTO) {
         return ResponseEntity.ok(adminService.createCourse(courseDTO));
     }
 
     @PutMapping("/courses/{id}")
-    public ResponseEntity<AdminCourseDTO> updateCourse(@PathVariable Long id, @RequestBody AdminCourseDTO courseDTO) {
+    public ResponseEntity<AdminCourseDTO> updateCourse(@PathVariable Long id, @Valid @RequestBody AdminCourseDTO courseDTO) {
         return ResponseEntity.ok(adminService.updateCourse(id, courseDTO));
     }
 

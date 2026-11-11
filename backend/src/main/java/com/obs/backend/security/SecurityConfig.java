@@ -14,6 +14,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -45,6 +46,16 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        // Roles are checked here as well as with @PreAuthorize on the controllers:
+                        // a filter-level check runs before request body validation, so a caller
+                        // without the role always gets 403, never a 400 about the body (plan 3.4)
+                        .requestMatchers(HttpMethod.POST, "/api/admin/users/administrative").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/admin/users/administrative/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/admin/users/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/admin/users/*/reactivate").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "ADMINISTRATIVE")
+                        .requestMatchers("/api/academician/**").hasRole("ACADEMICIAN")
+                        .requestMatchers("/api/student/**").hasRole("STUDENT")
                         .anyRequest().authenticated()
                 );
 

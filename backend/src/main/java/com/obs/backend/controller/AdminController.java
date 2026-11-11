@@ -1,5 +1,7 @@
 package com.obs.backend.controller;
 
+import jakarta.validation.Valid;
+
 import com.obs.backend.dto.admin.ClassroomDTO;
 import com.obs.backend.dto.admin.DepartmentDTO;
 import com.obs.backend.dto.admin.FacultyDTO;
@@ -27,12 +29,12 @@ public class AdminController {
     }
 
     @PostMapping("/faculties")
-    public ResponseEntity<FacultyDTO> createFaculty(@RequestBody FacultyDTO facultyDTO) {
+    public ResponseEntity<FacultyDTO> createFaculty(@Valid @RequestBody FacultyDTO facultyDTO) {
         return ResponseEntity.ok(adminService.createFaculty(facultyDTO));
     }
 
     @PutMapping("/faculties/{id}")
-    public ResponseEntity<FacultyDTO> updateFaculty(@PathVariable Long id, @RequestBody FacultyDTO facultyDTO) {
+    public ResponseEntity<FacultyDTO> updateFaculty(@PathVariable Long id, @Valid @RequestBody FacultyDTO facultyDTO) {
         return ResponseEntity.ok(adminService.updateFaculty(id, facultyDTO));
     }
 
@@ -50,12 +52,12 @@ public class AdminController {
     }
 
     @PostMapping("/departments")
-    public ResponseEntity<DepartmentDTO> createDepartment(@RequestBody DepartmentDTO departmentDTO) {
+    public ResponseEntity<DepartmentDTO> createDepartment(@Valid @RequestBody DepartmentDTO departmentDTO) {
         return ResponseEntity.ok(adminService.createDepartment(departmentDTO));
     }
 
     @PutMapping("/departments/{id}")
-    public ResponseEntity<DepartmentDTO> updateDepartment(@PathVariable Long id, @RequestBody DepartmentDTO departmentDTO) {
+    public ResponseEntity<DepartmentDTO> updateDepartment(@PathVariable Long id, @Valid @RequestBody DepartmentDTO departmentDTO) {
         return ResponseEntity.ok(adminService.updateDepartment(id, departmentDTO));
     }
 
@@ -73,12 +75,12 @@ public class AdminController {
     }
 
     @PostMapping("/classrooms")
-    public ResponseEntity<ClassroomDTO> createClassroom(@RequestBody ClassroomDTO classroomDTO) {
+    public ResponseEntity<ClassroomDTO> createClassroom(@Valid @RequestBody ClassroomDTO classroomDTO) {
         return ResponseEntity.ok(adminService.createClassroom(classroomDTO));
     }
 
     @PutMapping("/classrooms/{id}")
-    public ResponseEntity<ClassroomDTO> updateClassroom(@PathVariable Long id, @RequestBody ClassroomDTO classroomDTO) {
+    public ResponseEntity<ClassroomDTO> updateClassroom(@PathVariable Long id, @Valid @RequestBody ClassroomDTO classroomDTO) {
         return ResponseEntity.ok(adminService.updateClassroom(id, classroomDTO));
     }
 

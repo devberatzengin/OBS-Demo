@@ -30,12 +30,16 @@ export function Textarea({ className, ...props }) {
   return <textarea className={cn(control, width(className), 'min-h-24 py-2', className)} {...props} />;
 }
 
-export function Field({ label, htmlFor, hint, children, className }) {
+export function Field({ label, htmlFor, hint, error, children, className }) {
   return (
     <div className={className}>
       {label && <Label htmlFor={htmlFor}>{label}</Label>}
       {children}
-      {hint && <p className="mt-1 text-xs text-fg-subtle">{hint}</p>}
+      {error ? (
+        <p className="mt-1 text-xs text-danger" role="alert">{error}</p>
+      ) : (
+        hint && <p className="mt-1 text-xs text-fg-subtle">{hint}</p>
+      )}
     </div>
   );
 }

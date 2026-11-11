@@ -12,7 +12,7 @@ import {
   Spinner, StatCard, Table, TBody, TD, TH, THead, TR, Tabs, useToast,
 } from '../components/ui';
 import { formatDateTime } from '../lib/format';
-import { apiError } from '../lib/errors';
+import { apiError, fieldErrors } from '../lib/errors';
 
 const ROLE_TABS = [
   { id: 'STUDENT', label: 'Students', icon: GraduationCap, key: 'students' },
@@ -62,6 +62,7 @@ const AdminPortal = () => {
   const [query, setQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState('ALL');
   const [editor, setEditor] = useState(null); // { type: 'user'|'course', role?, item?, form }
+  const [fe, setFe] = useState({}); // field errors from the last save
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [toDelete, setToDelete] = useState(null); // { type, item }
@@ -96,6 +97,7 @@ const AdminPortal = () => {
 
   const openUser = (item = null) => {
     setFormError('');
+    setFe({});
     setEditor({
       type: 'user',
       role,
@@ -106,6 +108,7 @@ const AdminPortal = () => {
 
   const openCourse = (item = null) => {
     setFormError('');
+    setFe({});
     setEditor({
       type: 'course',
       item,
@@ -113,7 +116,10 @@ const AdminPortal = () => {
     });
   };
 
-  const setField = (key) => (e) => setEditor((ed) => ({ ...ed, form: { ...ed.form, [key]: e.target.value } }));
+  const setField = (key) => (e) => {
+    setEditor((ed) => ({ ...ed, form: { ...ed.form, [key]: e.target.value } }));
+    setFe((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+  };
 
   const save = async (e) => {
     e.preventDefault();
@@ -147,7 +153,10 @@ const AdminPortal = () => {
       setEditor(null);
       load();
     } catch (err) {
-      setFormError(apiError(err, 'Operation failed.'));
+      const errors = fieldErrors(err);
+      setFe(errors);
+      // Field messages are shown under the inputs; the banner only repeats what has no field
+      setFormError(Object.keys(errors).length ? 'Please fix the highlighted fields.' : apiError(err, 'Operation failed.'));
     } finally {
       setSaving(false);
     }
@@ -392,22 +401,22 @@ const AdminPortal = () => {
             {formError && <Alert tone="danger">{formError}</Alert>}
             {editor.type === 'user' ? (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="First name" htmlFor="u-first"><Input id="u-first" required value={editor.form.firstName} onChange={setField('firstName')} /></Field>
-                <Field label="Last name" htmlFor="u-last"><Input id="u-last" required value={editor.form.lastName} onChange={setField('lastName')} /></Field>
-                <Field label="Email" htmlFor="u-email"><Input id="u-email" type="email" required value={editor.form.email} onChange={setField('email')} /></Field>
-                <Field label="Username" htmlFor="u-user" hint={editor.item ? 'Usernames cannot be changed.' : undefined}>
+                <Field label="First name" htmlFor="u-first" error={fe.firstName}><Input id="u-first" required value={editor.form.firstName} onChange={setField('firstName')} /></Field>
+                <Field label="Last name" htmlFor="u-last" error={fe.lastName}><Input id="u-last" required value={editor.form.lastName} onChange={setField('lastName')} /></Field>
+                <Field label="Email" htmlFor="u-email" error={fe.email}><Input id="u-email" type="email" required value={editor.form.email} onChange={setField('email')} /></Field>
+                <Field label="Username" htmlFor="u-user" error={fe.username} hint={editor.item ? 'Usernames cannot be changed.' : undefined}>
                   <Input id="u-user" required disabled={!!editor.item} value={editor.form.username} onChange={setField('username')} />
                 </Field>
-                <Field label={editor.item ? 'New password' : 'Password'} htmlFor="u-pass" hint={editor.item ? 'Leave empty to keep the current password.' : undefined}>
-                  <Input id="u-pass" type="password" autoComplete="new-password" required={!editor.item} value={editor.form.password} onChange={setField('password')} />
+                <Field label={editor.item ? 'New password' : 'Password'} htmlFor="u-pass" error={fe.password} hint={editor.item ? 'Leave empty to keep the current password.' : 'At least 8 characters.'}>
+                  <Input id="u-pass" type="password" autoComplete="new-password" minLength={8} maxLength={72} required={!editor.item} value={editor.form.password} onChange={setField('password')} />
                 </Field>
                 {editor.role === 'STUDENT' ? (
-                  <Field label="Student number" htmlFor="u-no"><Input id="u-no" required value={editor.form.studentNumber} onChange={setField('studentNumber')} /></Field>
+                  <Field label="Student number" htmlFor="u-no" error={fe.studentNumber ?? fe.staffNumber}><Input id="u-no" required value={editor.form.studentNumber} onChange={setField('studentNumber')} /></Field>
                 ) : (
-                  <Field label="Staff number" htmlFor="u-no"><Input id="u-no" value={editor.form.staffNumber} onChange={setField('staffNumber')} /></Field>
+                  <Field label="Staff number" htmlFor="u-no" error={fe.studentNumber ?? fe.staffNumber}><Input id="u-no" required value={editor.form.staffNumber} onChange={setField('staffNumber')} /></Field>
                 )}
                 {editor.role !== 'ADMINISTRATIVE' && (
-                  <Field label="Department" htmlFor="u-dept">
+                  <Field label="Department" htmlFor="u-dept" error={fe.departmentId}>
                     <Select id="u-dept" required value={editor.form.departmentId} onChange={setField('departmentId')}>
                       <option value="">Select department</option>
                       {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -434,12 +443,12 @@ const AdminPortal = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-6">
-                <Field label="Code" htmlFor="c-code" className="sm:col-span-2"><Input id="c-code" required value={editor.form.code} onChange={setField('code')} /></Field>
-                <Field label="Name" htmlFor="c-name" className="sm:col-span-4"><Input id="c-name" required value={editor.form.name} onChange={setField('name')} /></Field>
-                <Field label="Credits" htmlFor="c-cr" className="sm:col-span-2"><Input id="c-cr" type="number" min={0} required value={editor.form.credits} onChange={setField('credits')} /></Field>
-                <Field label="ECTS" htmlFor="c-akts" className="sm:col-span-2"><Input id="c-akts" type="number" min={0} required value={editor.form.akts} onChange={setField('akts')} /></Field>
+                <Field label="Code" htmlFor="c-code" error={fe.code} className="sm:col-span-2"><Input id="c-code" required value={editor.form.code} onChange={setField('code')} /></Field>
+                <Field label="Name" htmlFor="c-name" error={fe.name} className="sm:col-span-4"><Input id="c-name" required value={editor.form.name} onChange={setField('name')} /></Field>
+                <Field label="Credits" htmlFor="c-cr" error={fe.credits} className="sm:col-span-2"><Input id="c-cr" type="number" min={0} required value={editor.form.credits} onChange={setField('credits')} /></Field>
+                <Field label="ECTS" htmlFor="c-akts" error={fe.akts} className="sm:col-span-2"><Input id="c-akts" type="number" min={1} max={30} required value={editor.form.akts} onChange={setField('akts')} /></Field>
                 <Field label="Semester" htmlFor="c-sem" className="sm:col-span-2"><Input id="c-sem" type="number" min={1} max={8} required value={editor.form.semesterLevel} onChange={setField('semesterLevel')} /></Field>
-                <Field label="Department" htmlFor="c-dept" className="sm:col-span-3">
+                <Field label="Department" htmlFor="c-dept" error={fe.departmentId} className="sm:col-span-3">
                   <Select id="c-dept" required value={editor.form.departmentId} onChange={setField('departmentId')}>
                     <option value="">Select department</option>
                     {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}

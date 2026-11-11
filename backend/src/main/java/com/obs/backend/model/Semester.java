@@ -18,6 +18,10 @@ public class Semester {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Optimistic lock (plan 3.4): a save based on a stale copy fails with 409 instead of overwriting. */
+    @Version
+    private Long version;
+
     @Column(nullable = false, unique = true)
     private String name; // e.g., 2024-2025 Fall
 
