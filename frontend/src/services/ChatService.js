@@ -17,7 +17,7 @@ const ChatService = {
     },
 
     searchUsers: async (query) => {
-        const response = await api.get(`/chat/search?query=${query}`);
+        const response = await api.get(`/chat/search?query=${encodeURIComponent(query)}`);
         return response.data;
     }
 };

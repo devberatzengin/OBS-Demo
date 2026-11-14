@@ -5,15 +5,21 @@ import com.obs.backend.dto.student.CourseDTO;
 import com.obs.backend.exception.ErrorCode;
 import com.obs.backend.exception.ObsException;
 import com.obs.backend.model.*;
+import com.obs.backend.model.enums.EnrollmentStatus;
+import com.obs.backend.registration.AcademicHistory;
+import com.obs.backend.registration.EnrollmentValidator;
+import com.obs.backend.registration.EnrollmentValidator.RegistrationAttempt;
 import com.obs.backend.repository.*;
 import com.obs.backend.service.RegistrationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/** Course registration. Both endpoints go through {@link #enrollCourses} and the same rules (plan 3.1). */
 @Service
 @RequiredArgsConstructor
 public class RegistrationServiceImpl implements RegistrationService {
@@ -22,158 +28,113 @@ public class RegistrationServiceImpl implements RegistrationService {
     private final CourseRepository courseRepository;
     private final SemesterRepository semesterRepository;
     private final EnrollmentRepository enrollmentRepository;
-    private final ScheduleRepository scheduleRepository;
+    private final EnrollmentValidator enrollmentValidator;
 
     @Override
     public List<CourseDTO> getAvailableCourses(String username) {
-        Student student = studentRepository.findByUsername(username)
-                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Student not found"));
-
+        Student student = findStudent(username);
         Semester activeSemester = semesterRepository.findByIsActiveTrue()
                 .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Active semester not found"));
 
-        java.util.Map<Long, String> enrolledCourseStatusMap = enrollmentRepository.findByStudentIdAndSemesterId(student.getId(), activeSemester.getId())
-                .stream().collect(Collectors.toMap(e -> e.getCourse().getId(), e -> e.getStatus().name()));
-
-        // Get failed course IDs from ANY previous semester
-        java.util.Set<Long> failedCourseIds = enrollmentRepository.findByStudentId(student.getId())
+        Map<Long, Enrollment> thisSemester = enrollmentRepository.findByStudentIdAndSemesterId(student.getId(), activeSemester.getId())
                 .stream()
-                .filter(e -> "FF".equals(e.getGrade()))
-                .map(e -> e.getCourse().getId())
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toMap(e -> e.getCourse().getId(), Function.identity(),
+                        // A rejected request and a newer one for the same course: show the newer one
+                        (a, b) -> a.getStatus() == EnrollmentStatus.REJECTED ? b : a));
+        AcademicHistory history = enrollmentValidator.historyOf(student, activeSemester);
+        Set<Long> mandatory = enrollmentValidator.mandatoryRetakes(history).keySet();
 
-        // Get courses from student's department
-        return courseRepository.findByDepartmentId(student.getDepartment().getId())
+        if (student.getDepartment() == null) {
+            return List.of();
+        }
+        // Open courses of the department, plus anything the student already asked for this semester
+        List<Course> courses = courseRepository.findByDepartmentId(student.getDepartment().getId())
                 .stream()
-                .map(c -> CourseDTO.builder()
-                        .id(c.getId())
-                        .code(c.getCode())
-                        .name(c.getName())
-                        .akts(c.getAkts())
-                        .credits(c.getCredits())
-                        .instructorName(c.getInstructor() != null ? c.getInstructor().getFirstName() + " " + c.getInstructor().getLastName() : "N/A")
-                        .registered(enrolledCourseStatusMap.containsKey(c.getId()))
-                        .mandatory(failedCourseIds.contains(c.getId()))
-                        .status(enrolledCourseStatusMap.get(c.getId()))
-                        .build())
+                .filter(c -> c.isOpen() || thisSemester.containsKey(c.getId()))
+                .toList();
+        // Quota usage of every listed course in one query instead of one per course (plan 4.3)
+        Map<Long, Long> taken = enrollmentValidator.takenPlaces(
+                courses.stream().filter(EnrollmentValidator::hasQuota).toList(), activeSemester);
+
+        return courses.stream()
+                .map(c -> {
+                    Enrollment enrollment = thisSemester.get(c.getId());
+                    boolean registered = enrollment != null && enrollment.getStatus() != EnrollmentStatus.REJECTED;
+                    boolean hasQuota = EnrollmentValidator.hasQuota(c);
+                    return CourseDTO.builder()
+                            .id(c.getId())
+                            .code(c.getCode())
+                            .name(c.getName())
+                            .akts(c.getAkts())
+                            .credits(c.getCredits())
+                            .instructorName(c.getInstructor() != null ? c.getInstructor().getFirstName() + " " + c.getInstructor().getLastName() : "N/A")
+                            .grade(history.latestLetter(c.getId()).orElse(null))
+                            .registered(registered)
+                            .mandatory(mandatory.contains(c.getId()))
+                            .passed(enrollmentValidator.isPassedForGood(history, c.getId()))
+                            .quota(hasQuota ? c.getQuota() : null)
+                            .enrolledCount(hasQuota ? taken.getOrDefault(c.getId(), 0L) : null)
+                            .status(enrollment != null ? enrollment.getStatus().name() : null)
+                            .build();
+                })
                 .collect(Collectors.toList());
     }
 
     @Override
     @Transactional
     public void enrollCourses(String username, RegistrationRequest request) {
-        Student student = studentRepository.findByUsername(username)
-                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Student not found"));
-
+        Student student = findStudent(username);
         Semester activeSemester = semesterRepository.findByIsActiveTrue()
-                .orElseThrow(() -> new ObsException(ErrorCode.BAD_REQUEST, "No active semester for registration"));
+                .orElseThrow(() -> new ObsException(ErrorCode.REGISTRATION_CLOSED, "No active semester for registration"));
 
-        @lombok.NonNull List<Long> courseIds = request.getCourseIds();
-        List<Course> selectedCourses = courseRepository.findAllById(courseIds);
-
-        // 1. Mandatory Check: Alttan kalan dersler (FF) kontrolü
-        validateMandatoryCourses(student, selectedCourses);
-
-        // 2. AKTS Limit Check (30 AKTS)
-        validateAktsLimit(selectedCourses);
-
-        // 3. Conflict Check
-        validateScheduleConflicts(selectedCourses);
-
-        for (Course course : selectedCourses) {
-            @lombok.NonNull Enrollment enrollment = Enrollment.builder()
-                    .student(student)
-                    .course(course)
-                    .semester(activeSemester)
-                    .build();
-            enrollmentRepository.save(enrollment);
+        List<Long> courseIds = request == null || request.getCourseIds() == null ? List.of() : request.getCourseIds();
+        // anyMatch, not contains(null): List.of(...) throws on contains(null)
+        if (courseIds.isEmpty() || courseIds.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new ObsException(ErrorCode.VALIDATION_ERROR, "Select at least one course");
         }
-    }
 
-    private void validateMandatoryCourses(Student student, List<Course> selectedCourses) {
-        List<Enrollment> failedEnrollments = enrollmentRepository.findByStudentId(student.getId())
+        // Keep the request order and duplicates, so a course sent twice is reported as already registered
+        // Locked until commit: the quota is counted and the new rows are written under the lock
+        Map<Long, Course> found = courseRepository.findAllByIdForUpdate(new LinkedHashSet<>(courseIds)).stream()
+                .collect(Collectors.toMap(Course::getId, Function.identity()));
+        List<Long> unknown = courseIds.stream().filter(id -> !found.containsKey(id)).distinct().toList();
+        if (!unknown.isEmpty()) {
+            throw new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Course not found: " + unknown);
+        }
+        List<Course> requested = courseIds.stream().map(found::get).toList();
+
+        RegistrationAttempt attempt = enrollmentValidator.prepare(student, activeSemester, requested);
+        enrollmentValidator.validate(attempt);
+
+        Map<Long, Enrollment> rejected = enrollmentRepository.findByStudentIdAndSemesterId(student.getId(), activeSemester.getId())
                 .stream()
-                .filter(e -> "FF".equals(e.getGrade()))
-                .collect(Collectors.toList());
+                .filter(e -> e.getStatus() == EnrollmentStatus.REJECTED)
+                .collect(Collectors.toMap(e -> e.getCourse().getId(), Function.identity(), (a, b) -> a));
 
-        for (Enrollment failed : failedEnrollments) {
-            boolean isReSelected = selectedCourses.stream()
-                    .anyMatch(c -> c.getId().equals(failed.getCourse().getId()));
-            
-            if (!isReSelected) {
-                throw new ObsException(ErrorCode.BAD_REQUEST, 
-                    "You must select failed course color-coded as mandatory: " + failed.getCourse().getCode());
+        for (Course course : requested) {
+            // Asking again after a rejection reuses the row: one enrollment per student, course and semester
+            Enrollment enrollment = rejected.get(course.getId());
+            if (enrollment != null) {
+                enrollment.setStatus(EnrollmentStatus.PENDING);
+            } else {
+                enrollment = Enrollment.builder()
+                        .student(student)
+                        .course(course)
+                        .semester(activeSemester)
+                        .build();
             }
-        }
-    }
-
-    private void validateAktsLimit(List<Course> courses) {
-        int totalAkts = courses.stream().mapToInt(Course::getAkts).sum();
-        if (totalAkts > 30) {
-            throw new ObsException(ErrorCode.BAD_REQUEST, "Total AKTS exceeds the limit of 30. Current: " + totalAkts);
-        }
-    }
-
-    private void validateScheduleConflicts(List<Course> courses) {
-        List<Long> courseIds = courses.stream().map(Course::getId).collect(Collectors.toList());
-        List<Schedule> allSchedules = scheduleRepository.findByCourseIdIn(courseIds);
-
-        for (int i = 0; i < allSchedules.size(); i++) {
-            for (int j = i + 1; j < allSchedules.size(); j++) {
-                Schedule s1 = allSchedules.get(i);
-                Schedule s2 = allSchedules.get(j);
-
-                if (isConflict(s1, s2)) {
-                    throw new ObsException(ErrorCode.BAD_REQUEST, 
-                        String.format("Schedule conflict: %s (%s %s-%s) and %s (%s %s-%s)", 
-                            s1.getCourse().getCode(), s1.getDayOfWeek(), s1.getStartTime(), s1.getEndTime(),
-                            s2.getCourse().getCode(), s2.getDayOfWeek(), s2.getStartTime(), s2.getEndTime()));
-                }
-            }
+            enrollmentRepository.save(enrollment);
         }
     }
 
     @Override
     @Transactional
     public void registerCourse(String username, Long courseId) {
-        Student student = studentRepository.findByUsername(username)
-                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Student not found"));
-
-        Semester activeSemester = semesterRepository.findByIsActiveTrue()
-                .orElseThrow(() -> new ObsException(ErrorCode.BAD_REQUEST, "No active semester for registration"));
-
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Course not found"));
-
-        // Check if already enrolled
-        if (enrollmentRepository.findByStudentIdAndSemesterId(student.getId(), activeSemester.getId())
-                .stream().anyMatch(e -> e.getCourse().getId().equals(courseId))) {
-            throw new ObsException(ErrorCode.BAD_REQUEST, "Already registered for this course");
-        }
-
-        // Get currently selected courses to validate limits
-        List<Course> currentCourses = enrollmentRepository.findByStudentIdAndSemesterId(student.getId(), activeSemester.getId())
-                .stream().map(Enrollment::getCourse).collect(Collectors.toCollection(java.util.ArrayList::new));
-        
-        currentCourses.add(course);
-
-        // Validations
-        validateAktsLimit(currentCourses);
-        validateScheduleConflicts(currentCourses);
-
-        @lombok.NonNull Enrollment enrollment = Enrollment.builder()
-                .student(student)
-                .course(course)
-                .semester(activeSemester)
-                .build();
-        enrollmentRepository.save(enrollment);
+        enrollCourses(username, RegistrationRequest.builder().courseIds(List.of(courseId)).build());
     }
 
-    private boolean isConflict(Schedule s1, Schedule s2) {
-        if (!s1.getDayOfWeek().equals(s2.getDayOfWeek())) {
-            return false;
-        }
-        // Overlap logic: (Start1 < End2) AND (Start2 < End1)
-        return s1.getStartTime().isBefore(s2.getEndTime()) && s2.getStartTime().isBefore(s1.getEndTime());
+    private Student findStudent(String username) {
+        return studentRepository.findByUsername(username)
+                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Student not found"));
     }
 }

@@ -20,6 +20,10 @@ public class Course {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Optimistic lock (plan 3.4): a save based on a stale copy fails with 409 instead of overwriting. */
+    @Version
+    private Long version;
+
     @Column(nullable = false, unique = true)
     @NonNull
     private String code; // e.g., CSE101

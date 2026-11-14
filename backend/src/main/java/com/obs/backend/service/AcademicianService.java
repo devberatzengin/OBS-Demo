@@ -36,6 +36,12 @@ public interface AcademicianService {
 
     void enterGrades(Long examId, GradeEntryRequest request);
 
+    /** Assigns letter grades for the active semester once every exam score is in (plan decision K1). */
+    com.obs.backend.dto.academician.GradeFinalizationResult finalizeGrades(Long courseId);
+
+    /** Changes one exam score of a finalized course, with a mandatory reason that goes to the audit log. */
+    void correctFinalizedGrade(Long examId, com.obs.backend.dto.academician.GradeCorrectionRequest request);
+
     void recordAttendance(Long courseId, AttendanceEntryRequest request);
 
     List<AttendanceEntryRequest.StudentAttendanceDTO> getTodayAttendance(Long courseId);

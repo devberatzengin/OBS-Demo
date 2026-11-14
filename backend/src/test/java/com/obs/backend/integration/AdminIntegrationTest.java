@@ -1,5 +1,6 @@
 package com.obs.backend.integration;
 
+import com.obs.backend.support.AbstractIntegrationTest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obs.backend.dto.admin.*;
 import com.obs.backend.model.enums.Role;
@@ -10,8 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.MethodOrderer;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -21,10 +20,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.hamcrest.Matchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-public class AdminIntegrationTest {
+public class AdminIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -103,7 +100,8 @@ public class AdminIntegrationTest {
         // Verify id2 is active, id1 is inactive
         mockMvc.perform(get("/api/admin/academics/semesters"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == " + id2 + ")].active").value(true));
+                .andExpect(jsonPath("$[?(@.id == " + id2 + ")].isActive").value(true))
+                .andExpect(jsonPath("$[?(@.id == " + id1 + ")].isActive").value(false));
     }
 
     // --- Phase 3: User Management ---
@@ -146,9 +144,10 @@ public class AdminIntegrationTest {
                         .content(objectMapper.writeValueAsString(studentReq)))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/admin/users/students"))
+        mockMvc.perform(get("/api/admin/users/students").param("q", studentReq.getUsername()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].firstName", hasItem("Test")));
+                .andExpect(jsonPath("$.content[*].firstName", hasItem("Test")))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     // --- Phase 4: Operational Control ---

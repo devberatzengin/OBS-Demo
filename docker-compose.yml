@@ -4,9 +4,9 @@ services:
     container_name: obs-postgres
     restart: always
     environment:
-      POSTGRES_DB: obs_db
-      POSTGRES_USER: obs_user
-      POSTGRES_PASSWORD: obs_password
+      POSTGRES_DB: ${OBS_DB_NAME:-obs_db}
+      POSTGRES_USER: ${OBS_DB_USER:?Set OBS_DB_USER in .env (see .env.example)}
+      POSTGRES_PASSWORD: ${OBS_DB_PASSWORD:?Set OBS_DB_PASSWORD in .env (see .env.example)}
     ports:
       - "55050:5432"
     volumes:

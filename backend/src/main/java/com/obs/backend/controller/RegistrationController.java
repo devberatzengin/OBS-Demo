@@ -1,5 +1,7 @@
 package com.obs.backend.controller;
 
+import jakarta.validation.Valid;
+
 import com.obs.backend.dto.registration.RegistrationRequest;
 import com.obs.backend.dto.student.CourseDTO;
 import com.obs.backend.service.RegistrationService;
@@ -25,7 +27,7 @@ public class RegistrationController {
     }
 
     @PostMapping("/enroll")
-    public ResponseEntity<String> enroll(@RequestBody RegistrationRequest request, Principal principal) {
+    public ResponseEntity<String> enroll(@Valid @RequestBody RegistrationRequest request, Principal principal) {
         registrationService.enrollCourses(principal.getName(), request);
         return ResponseEntity.ok("Registration completed successfully!");
     }

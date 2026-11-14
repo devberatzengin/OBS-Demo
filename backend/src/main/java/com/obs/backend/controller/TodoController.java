@@ -1,5 +1,7 @@
 package com.obs.backend.controller;
 
+import jakarta.validation.Valid;
+
 import com.obs.backend.dto.student.TodoDTO;
 import com.obs.backend.service.TodoService;
 import lombok.RequiredArgsConstructor;
@@ -22,24 +24,24 @@ public class TodoController {
     }
 
     @PostMapping
-    public ResponseEntity<TodoDTO> addTodo(@RequestBody TodoDTO todoDTO, Principal principal) {
+    public ResponseEntity<TodoDTO> addTodo(@Valid @RequestBody TodoDTO todoDTO, Principal principal) {
         return ResponseEntity.ok(todoService.addTodo(principal.getName(), todoDTO));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<TodoDTO> updateTodo(@PathVariable Long id, @RequestBody TodoDTO todoDTO) {
-        return ResponseEntity.ok(todoService.updateTodo(id, todoDTO));
+    public ResponseEntity<TodoDTO> updateTodo(@PathVariable Long id, @Valid @RequestBody TodoDTO todoDTO, Principal principal) {
+        return ResponseEntity.ok(todoService.updateTodo(principal.getName(), id, todoDTO));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTodo(@PathVariable Long id) {
-        todoService.deleteTodo(id);
+    public ResponseEntity<Void> deleteTodo(@PathVariable Long id, Principal principal) {
+        todoService.deleteTodo(principal.getName(), id);
         return ResponseEntity.ok().build();
     }
 
     @PatchMapping("/{id}/toggle")
-    public ResponseEntity<Void> toggleTodo(@PathVariable Long id) {
-        todoService.toggleTodo(id);
+    public ResponseEntity<Void> toggleTodo(@PathVariable Long id, Principal principal) {
+        todoService.toggleTodo(principal.getName(), id);
         return ResponseEntity.ok().build();
     }
 }

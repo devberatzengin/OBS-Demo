@@ -1,5 +1,7 @@
 package com.obs.backend.controller;
 
+import jakarta.validation.Valid;
+
 import com.obs.backend.dto.student.*;
 import com.obs.backend.service.AttendanceService;
 import com.obs.backend.service.MessagingService;
@@ -39,7 +41,7 @@ public class StudentController {
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<Void> updateProfile(Principal principal, @RequestBody com.obs.backend.dto.user.UpdateProfileRequest request) {
+    public ResponseEntity<Void> updateProfile(Principal principal, @Valid @RequestBody com.obs.backend.dto.user.UpdateProfileRequest request) {
         studentService.updateProfile(principal.getName(), request);
         return ResponseEntity.ok().build();
     }
@@ -76,7 +78,7 @@ public class StudentController {
     }
 
     @PostMapping("/simulate-gpa")
-    public ResponseEntity<Double> simulateGpa(@RequestBody SimulationRequest request, Principal principal) {
+    public ResponseEntity<Double> simulateGpa(@Valid @RequestBody SimulationRequest request, Principal principal) {
         return ResponseEntity.ok(transcriptService.simulateGpa(principal.getName(), request));
     }
 }

@@ -31,7 +31,9 @@ public class LoggingServiceImpl implements LoggingService {
     }
 
     @Override
-    public List<SystemLog> getRecentLogs() {
-        return logRepository.findTop10ByOrderByTimestampDesc();
+    public com.obs.backend.dto.common.PageResponse<SystemLog> getLogs(int page, int size) {
+        var pageable = org.springframework.data.domain.PageRequest.of(
+                com.obs.backend.dto.common.PageResponse.safePage(page), com.obs.backend.dto.common.PageResponse.safeSize(size));
+        return com.obs.backend.dto.common.PageResponse.of(logRepository.findAllByOrderByTimestampDescIdDesc(pageable), log -> log);
     }
 }

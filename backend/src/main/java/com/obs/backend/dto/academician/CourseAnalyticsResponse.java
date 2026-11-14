@@ -16,4 +16,6 @@ public class CourseAnalyticsResponse {
     private Long totalStudents;
     private Long passedStudents;
     private Double passRate; // e.g., 85.0 (percentage)
+    /** True once every approved enrollment of the active semester has a finalized grade. */
+    private Boolean gradesFinalized;
 }

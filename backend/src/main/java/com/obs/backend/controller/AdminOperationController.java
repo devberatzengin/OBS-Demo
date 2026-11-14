@@ -1,5 +1,7 @@
 package com.obs.backend.controller;
 
+import jakarta.validation.Valid;
+
 import com.obs.backend.dto.admin.AdminAnnouncementRequest;
 import com.obs.backend.dto.admin.AdminDashboardStatsDTO;
 import com.obs.backend.service.AdminService;
@@ -23,12 +25,13 @@ public class AdminOperationController {
     }
 
     @GetMapping("/logs")
-    public ResponseEntity<java.util.List<com.obs.backend.model.SystemLog>> getRecentLogs() {
-        return ResponseEntity.ok(loggingService.getRecentLogs());
+    public ResponseEntity<com.obs.backend.dto.common.PageResponse<com.obs.backend.model.SystemLog>> getLogs(
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(loggingService.getLogs(page, size));
     }
 
     @PostMapping("/announcement")
-    public ResponseEntity<String> sendAnnouncement(@RequestBody AdminAnnouncementRequest request) {
+    public ResponseEntity<String> sendAnnouncement(@Valid @RequestBody AdminAnnouncementRequest request) {
         adminService.sendGlobalAnnouncement(request);
         return ResponseEntity.ok("Announcement sent to target users");
     }

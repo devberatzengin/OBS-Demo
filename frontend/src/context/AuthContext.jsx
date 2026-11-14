@@ -1,21 +1,18 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import { createContext, useState, useContext } from 'react';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Check if user is logged in from localStorage
-    const savedUser = localStorage.getItem('obs_user');
-    const token = localStorage.getItem('obs_token');
-    
-    if (savedUser && token) {
-      setUser(JSON.parse(savedUser));
+  // Restore the session synchronously so protected routes don't redirect on first render
+  const [user, setUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('obs_user');
+      return savedUser && localStorage.getItem('obs_token') ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
     }
-    setLoading(false);
-  }, []);
+  });
+  const loading = false;
 
   const login = (userData, token) => {
     localStorage.setItem('obs_user', JSON.stringify(userData));
@@ -36,4 +33,5 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);

@@ -1,5 +1,8 @@
 package com.obs.backend.controller;
 
+import com.obs.backend.dto.common.PageResponse;
+import jakarta.validation.Valid;
+
 import com.obs.backend.dto.admin.AdminCourseDTO;
 import com.obs.backend.dto.admin.SemesterDTO;
 import com.obs.backend.service.AdminService;
@@ -26,12 +29,12 @@ public class AdminAcademicController {
     }
 
     @PostMapping("/semesters")
-    public ResponseEntity<SemesterDTO> createSemester(@RequestBody SemesterDTO semesterDTO) {
+    public ResponseEntity<SemesterDTO> createSemester(@Valid @RequestBody SemesterDTO semesterDTO) {
         return ResponseEntity.ok(adminService.createSemester(semesterDTO));
     }
 
     @PutMapping("/semesters/{id}")
-    public ResponseEntity<SemesterDTO> updateSemester(@PathVariable Long id, @RequestBody SemesterDTO semesterDTO) {
+    public ResponseEntity<SemesterDTO> updateSemester(@PathVariable Long id, @Valid @RequestBody SemesterDTO semesterDTO) {
         return ResponseEntity.ok(adminService.updateSemester(id, semesterDTO));
     }
 
@@ -44,17 +47,19 @@ public class AdminAcademicController {
     // --- Course Operations ---
 
     @GetMapping("/courses")
-    public ResponseEntity<List<AdminCourseDTO>> getAllCourses() {
-        return ResponseEntity.ok(adminService.getAllCourses());
+    public ResponseEntity<PageResponse<AdminCourseDTO>> getCourses(
+            @RequestParam(required = false) String q, @RequestParam(required = false) Long departmentId,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "25") int size) {
+        return ResponseEntity.ok(adminService.getCourses(q, departmentId, page, size));
     }
 
     @PostMapping("/courses")
-    public ResponseEntity<AdminCourseDTO> createCourse(@RequestBody AdminCourseDTO courseDTO) {
+    public ResponseEntity<AdminCourseDTO> createCourse(@Valid @RequestBody AdminCourseDTO courseDTO) {
         return ResponseEntity.ok(adminService.createCourse(courseDTO));
     }
 
     @PutMapping("/courses/{id}")
-    public ResponseEntity<AdminCourseDTO> updateCourse(@PathVariable Long id, @RequestBody AdminCourseDTO courseDTO) {
+    public ResponseEntity<AdminCourseDTO> updateCourse(@PathVariable Long id, @Valid @RequestBody AdminCourseDTO courseDTO) {
         return ResponseEntity.ok(adminService.updateCourse(id, courseDTO));
     }
 

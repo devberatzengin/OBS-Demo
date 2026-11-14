@@ -1,14 +1,15 @@
 package com.obs.backend.integration;
 
+import com.obs.backend.support.AbstractIntegrationTest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obs.backend.dto.registration.RegistrationRequest;
 import com.obs.backend.dto.student.SimulationRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -17,9 +18,9 @@ import java.util.Map;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-public class StudentIntegrationTest {
+// These tests read the dev seed (student 2024001, CSE201/CSE999/MAT101), loaded fresh before each test.
+@Sql(scripts = "/db/dev/R__dev_seed.sql", config = @SqlConfig(encoding = "UTF-8"))
+public class StudentIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;

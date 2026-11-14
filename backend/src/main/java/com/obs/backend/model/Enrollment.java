@@ -17,6 +17,10 @@ public class Enrollment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Optimistic lock (plan 3.4): a save based on a stale copy fails with 409 instead of overwriting. */
+    @Version
+    private Long version;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false)
     @NonNull
@@ -37,9 +41,18 @@ public class Enrollment {
     @Builder.Default
     private EnrollmentStatus status = EnrollmentStatus.PENDING;
 
+    /** Letter grade (AA..FF); null until the instructor finalizes the course grades. */
+    private String grade;
+
+    /** Running weighted score (0-100) from the exam grades entered so far. */
     @Builder.Default
-    private String grade = "N/A"; // e.g., AA, BA, FF
-    
-    @Builder.Default
-    private Double score = 0.0; // e.g., 85.5
+    private Double score = 0.0;
+
+    /** When the instructor finalized the grade; null while the course is in progress. */
+    @Column(name = "grade_finalized_at")
+    private java.time.LocalDateTime gradeFinalizedAt;
+
+    public boolean isGradeFinalized() {
+        return gradeFinalizedAt != null;
+    }
 }

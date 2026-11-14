@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
@@ -20,7 +19,6 @@ import MyStudents from './pages/MyStudents';
 import AdminPortal from './pages/AdminPortal';
 import AdministrativeDashboard from './pages/AdministrativeDashboard';
 import PortalLayout from './layouts/PortalLayout';
-import './App.css';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user } = useAuth();

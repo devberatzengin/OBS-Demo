@@ -10,5 +10,6 @@ public interface MessagingService {
     List<MessageDTO> getChatHistory(String username, Long otherUserId);
     List<MessageDTO> getUnreadMessages(String username);
     List<ContactDTO> getContacts(String username);
-    void markAsRead(Long messageId);
+    /** Marks a message read; only its receiver may do this. */
+    void markAsRead(String username, Long messageId);
 }

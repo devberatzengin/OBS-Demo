@@ -1,8 +1,29 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthService from '../services/AuthService';
-import { LogIn, User, Lock, Loader2, GraduationCap, School, Shield } from 'lucide-react';
+import { User, Lock, LogIn, GraduationCap, BookOpenCheck, CalendarClock, ShieldCheck } from 'lucide-react';
+import { Alert, Button, Field, Input, ThemeToggle, cn } from '../components/ui';
+
+const ROLES = [
+  { value: 'STUDENT', label: 'Student' },
+  { value: 'ACADEMICIAN', label: 'Academician' },
+  { value: 'ADMINISTRATIVE', label: 'Staff' },
+  { value: 'ADMIN', label: 'Admin' },
+];
+
+const ROLE_HOME = {
+  ADMIN: '/admin',
+  ADMINISTRATIVE: '/administrative',
+  ACADEMICIAN: '/academician',
+  STUDENT: '/student',
+};
+
+const HIGHLIGHTS = [
+  { icon: BookOpenCheck, text: 'Course registration with credit and timetable checks' },
+  { icon: CalendarClock, text: 'Weekly schedule, exams and attendance in one place' },
+  { icon: ShieldCheck, text: 'Role-based portals for students, faculty and staff' },
+];
 
 const LoginPage = () => {
   const [identifier, setIdentifier] = useState('');
@@ -21,307 +42,143 @@ const LoginPage = () => {
 
     try {
       const data = await AuthService.login(identifier, password);
-      
-      // Role validation to make selector "effective"
+
+      // The selected portal must match the account's role
       if (data.role !== role) {
-        setError('Invalid username or password.');
-        setLoading(false);
+        const label = ROLES.find((r) => r.value === role)?.label ?? role;
+        setError(`This account cannot sign in to the ${label} portal. Select the correct portal above.`);
         return;
       }
 
       login(data, data.token);
-      
-      if (data.role === 'ADMIN') navigate('/admin');
-      else if (data.role === 'ADMINISTRATIVE') navigate('/administrative');
-      else if (data.role === 'ACADEMICIAN') navigate('/academician');
-      else navigate('/student');
-      
+      navigate(ROLE_HOME[data.role] ?? '/student');
     } catch (err) {
-      setError('Invalid username or password.');
+      if (err.response?.status === 429) {
+        const wait = err.response.headers?.['retry-after'];
+        setError(`Too many sign-in attempts. Try again in ${wait ?? 'a few'} seconds.`);
+      } else {
+        setError('Invalid username or password.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-container" style={styles.container}>
-      <div className="glass-card" style={styles.card}>
-        <div style={styles.header}>
-          <div style={{ 
-            ...styles.iconBadge, 
-            background: role === 'STUDENT' ? 'var(--accent-student)' : 
-                       role === 'ACADEMICIAN' ? 'var(--accent-academician)' : 
-                       role === 'ADMINISTRATIVE' ? 'var(--accent-admin)' : '#f85149' 
-          }}>
-            {role === 'STUDENT' ? <GraduationCap size={32} color="white" /> : 
-             role === 'ACADEMICIAN' ? <School size={32} color="white" /> : 
-             role === 'ADMINISTRATIVE' ? <User size={32} color="white" /> : <Shield size={32} color="white" />}
+    <div className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+      {/* Brand panel */}
+      <aside className="relative hidden overflow-hidden bg-[#13285e] p-12 text-white lg:flex lg:flex-col lg:justify-between">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage:
+              'linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)',
+            backgroundSize: '44px 44px',
+          }}
+        />
+        <div className="relative flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/20">
+            <GraduationCap className="size-5" />
           </div>
-          <h1 style={styles.title}>OBS Portal</h1>
-          <p style={styles.subtitle}>
-            Welcome back, please login to your account
-          </p>
+          <span className="text-lg font-semibold tracking-tight">OBS Portal</span>
         </div>
 
-        <form onSubmit={handleLogin} style={styles.form}>
-          {error && <div style={styles.error}>{error}</div>}
+        <div className="relative max-w-md">
+          <h1 className="text-4xl leading-tight font-semibold tracking-tight text-white">
+            Academic information system
+          </h1>
+          <p className="mt-4 text-base text-white/70">
+            Everything about your semester, from registration to transcript, in a single portal.
+          </p>
+          <ul className="mt-10 space-y-4">
+            {HIGHLIGHTS.map(({ icon: Icon, text }) => (
+              <li key={text} className="flex items-center gap-3 text-sm text-white/85">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-white/10">
+                  <Icon className="size-4" />
+                </span>
+                {text}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Username</label>
-            <div style={styles.inputWrapper}>
-              <User size={18} style={styles.inputIcon} />
-              <input
-                type="text"
-                placeholder="johndoe"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                style={styles.input}
-                required
-              />
+        <p className="relative text-xs text-white/50">Authorized access only</p>
+      </aside>
+
+      {/* Form */}
+      <main className="relative flex items-center justify-center px-4 py-12 sm:px-8">
+        <ThemeToggle className="absolute top-4 right-4" />
+
+        <div className="w-full max-w-sm">
+          <div className="mb-8 flex items-center gap-3 lg:hidden">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-accent text-accent-fg">
+              <GraduationCap className="size-5" />
             </div>
+            <span className="text-lg font-semibold">OBS Portal</span>
           </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Password</label>
-            <div style={styles.inputWrapper}>
-              <Lock size={18} style={styles.inputIcon} />
-              <input
+          <h2 className="text-2xl font-semibold">Sign in</h2>
+          <p className="mt-1 text-sm text-fg-subtle">Choose your portal and enter your credentials.</p>
+
+          {/* Portal selector */}
+          <div role="tablist" className="mt-6 grid grid-cols-4 gap-1 rounded-lg border border-border bg-surface-muted p-1">
+            {ROLES.map((r) => (
+              <button
+                key={r.value}
+                type="button"
+                role="tab"
+                aria-selected={role === r.value}
+                onClick={() => { setRole(r.value); setError(''); }}
+                className={cn(
+                  'h-8 rounded-md text-xs font-medium transition-colors cursor-pointer',
+                  role === r.value
+                    ? 'bg-surface text-fg shadow-card ring-1 ring-border'
+                    : 'text-fg-subtle hover:text-fg',
+                )}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={handleLogin} className="mt-6 space-y-4">
+            {error && <Alert tone="danger">{error}</Alert>}
+
+            <Field label="Username or email" htmlFor="identifier">
+              <Input
+                id="identifier"
+                icon={User}
+                autoComplete="username"
+                placeholder="2024001"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                required
+                className="h-10"
+              />
+            </Field>
+
+            <Field label="Password" htmlFor="password">
+              <Input
+                id="password"
                 type="password"
+                icon={Lock}
+                autoComplete="current-password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                style={styles.input}
                 required
+                className="h-10"
               />
-            </div>
-          </div>
+            </Field>
 
-          <button type="submit" disabled={loading} style={{ 
-            ...styles.loginButton,
-            background: role === 'STUDENT' ? 'var(--accent-student)' : 
-                       role === 'ACADEMICIAN' ? 'var(--accent-academician)' : 
-                       role === 'ADMINISTRATIVE' ? 'var(--accent-admin)' : '#f85149',
-            boxShadow: `0 0 20px ${role === 'STUDENT' ? 'rgba(35, 134, 54, 0.3)' : 
-                                   role === 'ACADEMICIAN' ? 'rgba(137, 87, 229, 0.3)' : 
-                                   role === 'ADMINISTRATIVE' ? 'rgba(210, 153, 34, 0.3)' : 'rgba(248, 81, 73, 0.3)'}`
-          }}>
-            {loading ? (
-              <Loader2 className="animate-spin" size={20} />
-            ) : (
-              <>
-                <LogIn size={20} />
-                <span>Sign In</span>
-              </>
-            )}
-          </button>
-        </form>
-
-        {/* Role Selector Bar */}
-        <div style={styles.roleSelector}>
-          <div 
-            onClick={() => setRole('STUDENT')}
-            style={{ 
-              ...styles.roleOption, 
-              background: role === 'STUDENT' ? 'var(--accent-student)' : 'transparent',
-              color: role === 'STUDENT' ? 'white' : 'var(--text-dim)'
-            }}
-          >
-            Student
-          </div>
-          <div 
-            onClick={() => setRole('ACADEMICIAN')}
-            style={{ 
-              ...styles.roleOption, 
-              background: role === 'ACADEMICIAN' ? 'var(--accent-academician)' : 'transparent',
-              color: role === 'ACADEMICIAN' ? 'white' : 'var(--text-dim)'
-            }}
-          >
-            Academician
-          </div>
-          <div 
-            onClick={() => setRole('ADMINISTRATIVE')}
-            style={{ 
-              ...styles.roleOption, 
-              background: role === 'ADMINISTRATIVE' ? 'var(--accent-admin)' : 'transparent',
-              color: role === 'ADMINISTRATIVE' ? 'white' : 'var(--text-dim)'
-            }}
-          >
-            Staff
-          </div>
-          <div 
-            onClick={() => setRole('ADMIN')}
-            style={{ 
-              ...styles.roleOption, 
-              background: role === 'ADMIN' ? '#f85149' : 'transparent',
-              color: role === 'ADMIN' ? 'white' : 'var(--text-dim)'
-            }}
-          >
-            Admin
-          </div>
+            <Button type="submit" size="lg" loading={loading} icon={LogIn} className="w-full justify-center">
+              Sign in
+            </Button>
+          </form>
         </div>
-
-        <div style={styles.footer}>
-          <p style={styles.footerText}>
-            Authorized Access Only
-          </p>
-        </div>
-      </div>
+      </main>
     </div>
   );
-};
-
-const styles = {
-  container: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #0a0c10 0%, #161b22 100%)',
-    padding: '1rem',
-  },
-  card: {
-    width: '100%',
-    maxWidth: '450px',
-    padding: '2.5rem',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2rem',
-  },
-  header: {
-    textAlign: 'center',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '0.5rem',
-  },
-  iconBadge: {
-    width: '64px',
-    height: '64px',
-    borderRadius: '16px',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: '1rem',
-    transition: 'all 0.3s ease',
-    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.4)',
-  },
-  title: {
-    fontSize: '1.8rem',
-    fontWeight: '800',
-    background: 'linear-gradient(to right, #fff, #8b949e)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-  },
-  subtitle: {
-    color: 'var(--text-secondary)',
-    fontSize: '0.9rem',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1.2rem',
-  },
-  inputGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '1rem',
-  },
-  inputGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.5rem',
-  },
-  label: {
-    fontSize: '0.85rem',
-    fontWeight: '600',
-    color: 'var(--text-secondary)',
-    marginLeft: '4px',
-  },
-  inputWrapper: {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-  },
-  inputIcon: {
-    position: 'absolute',
-    left: '12px',
-    color: 'var(--text-dim)',
-  },
-  input: {
-    width: '100%',
-    background: 'rgba(0, 0, 0, 0.2)',
-    border: '1px solid var(--border-glass)',
-    borderRadius: '12px',
-    padding: '0.8rem 1rem 0.8rem 2.5rem',
-    color: 'white',
-    fontSize: '1rem',
-    outline: 'none',
-    transition: 'border-color 0.2s ease',
-  },
-  loginButton: {
-    marginTop: '1rem',
-    height: '50px',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: '0.8rem',
-    color: 'white',
-    fontSize: '1rem',
-    fontWeight: '700',
-    border: 'none',
-    borderRadius: '12px',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-  },
-  error: {
-    background: 'rgba(248, 81, 73, 0.1)',
-    border: '1px solid #f85149',
-    color: '#f85149',
-    padding: '0.8rem',
-    borderRadius: '8px',
-    fontSize: '0.85rem',
-    textAlign: 'center',
-  },
-  success: {
-    background: 'rgba(35, 134, 54, 0.1)',
-    border: '1px solid #238636',
-    color: '#238636',
-    padding: '0.8rem',
-    borderRadius: '8px',
-    fontSize: '0.85rem',
-    textAlign: 'center',
-  },
-  footer: {
-    textAlign: 'center',
-    marginTop: '0.5rem',
-  },
-  footerText: {
-    color: 'var(--text-secondary)',
-    fontSize: '0.85rem',
-  },
-  link: {
-    fontWeight: '700',
-    cursor: 'pointer',
-    marginLeft: '5px',
-  },
-  roleSelector: {
-    display: 'flex',
-    background: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: '12px',
-    padding: '4px',
-    border: '1px solid var(--border-glass)',
-    marginTop: '0.5rem'
-  },
-  roleOption: {
-    flex: 1,
-    padding: '0.6rem',
-    textAlign: 'center',
-    fontSize: '0.8rem',
-    fontWeight: '700',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-  }
 };
 
 export default LoginPage;

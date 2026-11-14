@@ -1,555 +1,255 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Search, 
-  Send, 
-  MoreVertical, 
-  Phone, 
-  Video, 
-  Paperclip,
-  Smile,
-  CheckCheck,
-  User as UserIcon,
-  Loader2,
-  AlertCircle
-} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowLeft, CheckCheck, Check, MessageSquare, Search, SendHorizontal } from 'lucide-react';
 import ChatService from '../services/ChatService';
 import { useAuth } from '../context/AuthContext';
+import { Badge, Button, Card, EmptyState, Input, Spinner, cn, useToast } from '../components/ui';
+import { formatTime, toDate } from '../lib/format';
+import { apiError } from '../lib/errors';
+
+const ROLE_LABEL = { STUDENT: 'Student', ACADEMICIAN: 'Academician', ADMINISTRATIVE: 'Staff', ADMIN: 'Admin' };
+const idOf = (c) => c?.userId ?? c?.id;
+
+function Avatar({ name = '?', size = 'md' }) {
+  const initials = name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+  return (
+    <div className={cn(
+      'flex shrink-0 items-center justify-center rounded-full bg-accent-soft font-semibold text-accent',
+      size === 'sm' ? 'size-8 text-xs' : 'size-10 text-sm',
+    )}>
+      {initials}
+    </div>
+  );
+}
+
+const dayHeading = (d) => {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const x = new Date(d); x.setHours(0, 0, 0, 0);
+  const diff = Math.round((today - x) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return x.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+};
+
+const shortStamp = (value) => {
+  if (!value) return '';
+  const d = toDate(value);
+  const sameDay = d.toDateString() === new Date().toDateString();
+  return sameDay ? formatTime(value) : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+};
 
 const Messages = () => {
+  const { user } = useAuth();
+  const toast = useToast();
   const [contacts, setContacts] = useState([]);
-  const [selectedChat, setSelectedChat] = useState(null);
-  const [chatHistory, setChatHistory] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [history, setHistory] = useState([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [chatLoading, setChatLoading] = useState(false);
-  const [error, setError] = useState(null);
-  
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const scrollRef = useRef(null);
 
-  const { user } = useAuth();
-  const scrollRef = useRef();
-
-  const isStaff = user?.role === 'ADMIN' || user?.role === 'ADMINISTRATIVE';
-  const isAdmin = user?.role === 'ADMIN';
-  
-  const accentColor = isAdmin ? '#f85149' : (isStaff ? 'var(--accent-admin)' : 'var(--accent-student)');
-  const accentBg = isAdmin ? 'rgba(248, 81, 73, 0.1)' : (isStaff ? 'rgba(250, 204, 21, 0.1)' : 'rgba(35, 134, 54, 0.1)');
-  const accentBgStrong = isAdmin ? 'rgba(248, 81, 73, 0.2)' : (isStaff ? 'rgba(250, 204, 21, 0.2)' : 'rgba(35, 134, 54, 0.2)');
-
-  const fetchContacts = async () => {
-    try {
-      const data = await ChatService.getConversations();
+  const fetchContacts = useCallback(() => ChatService.getConversations()
+    .then((data) => {
       setContacts(data);
-      // Don't auto-select if we already have one
-      if (data.length > 0 && !selectedChat) setSelectedChat(data[0]);
-    } catch (err) {
-      setError('Failed to load conversations');
-    } finally {
-      setLoading(false);
-    }
-  };
+      // Select the first conversation only if nothing is open yet
+      setSelected((cur) => cur ?? (window.innerWidth >= 768 ? data[0] ?? null : null));
+    })
+    .catch(() => { /* keep the last known list; polling will retry */ })
+    .finally(() => setLoading(false)), []);
 
   useEffect(() => {
     fetchContacts();
-    const interval = setInterval(fetchContacts, 10000); // Sync contacts every 10s
-    return () => clearInterval(interval);
-  }, []);
+    const t = setInterval(fetchContacts, 10000);
+    return () => clearInterval(t);
+  }, [fetchContacts]);
+
+  const selectedId = idOf(selected);
+  useEffect(() => {
+    if (!selectedId) return undefined;
+    let alive = true;
+    const load = () => ChatService.getMessages(selectedId).then((d) => alive && setHistory(d)).catch(() => {});
+    load();
+    const t = setInterval(load, 3000);
+    return () => { alive = false; clearInterval(t); };
+  }, [selectedId]);
 
   useEffect(() => {
-    if (selectedChat) {
-      const fetchChat = async () => {
-        try {
-          const data = await ChatService.getMessages(selectedChat.userId || selectedChat.id);
-          setChatHistory(data);
-        } catch (err) {
-          console.error('Failed to load chat history');
-        }
-      };
-      fetchChat();
-      
-      const interval = setInterval(fetchChat, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [selectedChat]);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [chatHistory]);
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [history]);
 
   const handleSearch = async (val) => {
-    setSearchQuery(val);
-    if (val.length < 2) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
-    setIsSearching(true);
+    setQuery(val);
+    if (val.trim().length < 2) { setResults([]); return; }
     try {
-      const results = await ChatService.searchUsers(val);
-      setSearchResults(results.filter(r => r.id !== user.id));
-    } catch (err) { console.error(err); }
+      const r = await ChatService.searchUsers(val.trim());
+      setResults(r.filter((x) => x.id !== user.id));
+    } catch { setResults([]); }
   };
 
-  const startNewChat = (targetUser) => {
-    // Check if exists in contacts
-    const existing = contacts.find(c => (c.userId || c.id) === targetUser.id);
-    if (existing) {
-      setSelectedChat(existing);
-    } else {
-      setSelectedChat({
-        userId: targetUser.id,
-        fullName: targetUser.fullName,
-        role: targetUser.role,
-        isNew: true
-      });
-    }
-    setSearchQuery('');
-    setSearchResults([]);
-    setIsSearching(false);
+  const openChat = (target) => {
+    const existing = contacts.find((c) => idOf(c) === target.id);
+    setSelected(existing ?? { userId: target.id, fullName: target.fullName, role: target.role, isNew: true });
+    setQuery('');
+    setResults([]);
   };
 
-  const handleSendMessage = async (e) => {
+  const send = async (e) => {
     e.preventDefault();
-    if (!message.trim() || !selectedChat) return;
-
+    const text = message.trim();
+    if (!text || !selectedId) return;
+    setSending(true);
     try {
-      await ChatService.sendMessage(selectedChat.userId || selectedChat.id, message);
+      await ChatService.sendMessage(selectedId, text);
       setMessage('');
-      // Refresh chat immediately
-      const data = await ChatService.getMessages(selectedChat.userId || selectedChat.id);
-      setChatHistory(data);
+      setHistory(await ChatService.getMessages(selectedId));
       fetchContacts();
     } catch (err) {
-      console.error('Failed to send message');
+      toast.error('Message not sent', apiError(err));
+    } finally {
+      setSending(false);
     }
   };
 
-  if (loading && contacts.length === 0) return (
-    <div style={styles.center}>
-      <Loader2 className="animate-spin" size={40} color={accentColor} />
-    </div>
-  );
+  if (loading && contacts.length === 0) return <Spinner label="Loading conversations…" />;
+
+  // Insert a day separator whenever the date changes
+  const timeline = [];
+  let lastDay = null;
+  for (const m of history.filter((x) => x.senderId === selectedId || x.receiverId === selectedId)) {
+    const d = toDate(m.timestamp);
+    const key = d.toDateString();
+    if (key !== lastDay) { timeline.push({ sep: dayHeading(d), key: `sep-${key}` }); lastDay = key; }
+    timeline.push(m);
+  }
 
   return (
-    <div style={styles.container}>
-      <div className="glass-card" style={styles.chatWrapper}>
-        
-        {/* Sidebar */}
-        <div style={styles.sidebar}>
-          <div style={styles.sidebarHeader}>
-            <h2 style={styles.title}>Messages</h2>
-            <div style={styles.searchBox}>
-              <Search size={16} style={styles.searchIcon} />
-              <input 
-                type="text" 
-                placeholder="Search users..."
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                style={styles.searchInput}
-              />
-              
-              {/* Search Results Dropdown */}
-              {searchResults.length > 0 && (
-                <div style={styles.searchDropdown} className="glass-card">
-                  {searchResults.map(res => (
-                    <div key={res.id} style={styles.searchResultItem} onClick={() => startNewChat(res)}>
-                      <div style={styles.avatarSmall}>{res.fullName[0]}</div>
-                      <div>
-                        <div style={{fontWeight: '600', fontSize: '0.85rem'}}>{res.fullName}</div>
-                        <div style={{fontSize: '0.7rem', color: 'var(--text-dim)'}}>{res.role}</div>
-                      </div>
+    <Card className="flex h-[calc(100vh-4rem)] min-h-[520px] overflow-hidden lg:h-[calc(100vh-4rem)]">
+      {/* Conversation list */}
+      <aside className={cn('w-full flex-col border-r border-border md:flex md:w-80', selected ? 'hidden' : 'flex')}>
+        <div className="border-b border-border p-4">
+          <h1 className="text-lg font-semibold">Messages</h1>
+          <div className="relative mt-3">
+            <Input icon={Search} placeholder="Find people…" value={query} onChange={(e) => handleSearch(e.target.value)} />
+            {results.length > 0 && (
+              <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-pop">
+                {results.map((r) => (
+                  <button key={r.id} onClick={() => openChat(r)} className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-surface-hover cursor-pointer">
+                    <Avatar name={r.fullName} size="sm" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{r.fullName}</p>
+                      <p className="text-xs text-fg-subtle">{ROLE_LABEL[r.role] ?? r.role}</p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div style={styles.contactList}>
-            {contacts.map((contact) => (
-              <div 
-                key={contact.userId || contact.id}
-                onClick={() => setSelectedChat(contact)}
-                style={{
-                  ...styles.contactItem,
-                  background: (selectedChat?.userId || selectedChat?.id) === (contact.userId || contact.id) ? accentBg : 'transparent',
-                  borderColor: (selectedChat?.userId || selectedChat?.id) === (contact.userId || contact.id) ? accentColor : 'transparent'
-                }}
-              >
-                <div style={styles.avatar}>
-                  {(contact.fullName || contact.name)[0]}
-                  {contact.unreadCount > 0 && <div style={styles.unreadBadge}>{contact.unreadCount}</div>}
-                </div>
-                <div style={styles.contactInfo}>
-                  <div style={styles.contactHeader}>
-                    <span style={styles.contactName}>{contact.fullName || contact.name}</span>
-                    <span style={styles.contactTime}>
-                      {contact.lastMessageTimestamp ? new Date(contact.lastMessageTimestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
-                    </span>
-                  </div>
-                  <p style={styles.lastMsg}>{contact.lastMessage || contact.role}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Chat Area */}
-        <div style={styles.chatArea}>
-          {selectedChat ? (
-            <>
-              {/* Chat Header */}
-              <div style={styles.chatHeader}>
-                <div style={styles.activeContact}>
-                  <div style={{...styles.avatar, background: accentBgStrong, color: accentColor}}>
-                    {(selectedChat.fullName || selectedChat.name)[0]}
-                  </div>
-                  <div>
-                    <h3 style={styles.activeName}>{selectedChat.fullName || selectedChat.name}</h3>
-                    <p style={styles.activeRole}>{selectedChat.role}</p>
-                  </div>
-                </div>
-                <div style={styles.headerActions}>
-                  <Phone size={20} style={styles.actionIcon} />
-                  <Video size={20} style={styles.actionIcon} />
-                  <MoreVertical size={20} style={styles.actionIcon} />
-                </div>
-              </div>
-
-              {/* Messages */}
-              <div style={styles.messagesList} ref={scrollRef}>
-                {chatHistory.length > 0 ? (
-                  chatHistory.map((msg) => (
-                    <div key={msg.id} style={{
-                      ...styles.messageRow,
-                      justifyContent: msg.senderId === user.id ? 'flex-end' : 'flex-start'
-                    }}>
-                      <div style={{
-                        ...styles.messageBubble,
-                        background: msg.senderId === user.id ? accentColor : 'var(--bg-secondary)',
-                        color: msg.senderId === user.id ? 'black' : 'white',
-                        borderBottomRightRadius: msg.senderId === user.id ? '4px' : '16px',
-                        borderBottomLeftRadius: msg.senderId === user.id ? '16px' : '4px',
-                      }}>
-                        <p style={styles.messageText}>{msg.content}</p>
-                        <div style={{
-                          ...styles.messageMeta,
-                          color: msg.senderId === user.id ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)'
-                        }}>
-                          {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                          {msg.senderId === user.id && <CheckCheck size={14} style={{marginLeft: '4px', color: msg.isRead ? '#00d4ff' : 'inherit'}} />}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div style={styles.center}><p style={styles.emptyText}>{selectedChat.isNew ? 'Start a new conversation!' : 'No messages yet. Say hello!'}</p></div>
-                )}
-              </div>
-
-              {/* Input */}
-              <form onSubmit={handleSendMessage} style={styles.inputArea}>
-                <div style={styles.inputWrapper}>
-                  <Smile size={20} style={styles.inputAction} />
-                  <Paperclip size={20} style={styles.inputAction} />
-                  <input 
-                    type="text" 
-                    placeholder="Type a message..."
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    style={styles.textInput}
-                  />
-                  <button type="submit" style={{...styles.sendBtn, background: accentColor, color: isAdmin ? 'white' : (isStaff ? 'black' : 'white')}}>
-                    <Send size={18} />
                   </button>
-                </div>
-              </form>
-            </>
-          ) : (
-            <div style={styles.center}>
-              <div style={{textAlign: 'center'}}>
-                <AlertCircle size={48} color="var(--text-dim)" style={{marginBottom: '1rem'}} />
-                <h3>Select a contact or search to start messaging</h3>
+                ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-    </div>
-  );
-};
 
-const styles = {
-  container: {
-    padding: '2rem',
-    height: 'calc(100vh - 100px)',
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  chatWrapper: {
-    flex: 1,
-    display: 'flex',
-    overflow: 'hidden',
-    borderRadius: '24px',
-    border: '1px solid var(--border-glass)'
-  },
-  sidebar: {
-    width: '320px',
-    borderRight: '1px solid var(--border-glass)',
-    display: 'flex',
-    flexDirection: 'column',
-    background: 'rgba(0,0,0,0.1)'
-  },
-  sidebarHeader: {
-    padding: '1.5rem',
-    borderBottom: '1px solid var(--border-glass)'
-  },
-  title: {
-    fontSize: '1.5rem',
-    marginBottom: '1rem',
-    color: 'var(--text-primary)'
-  },
-  searchBox: {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center'
-  },
-  searchIcon: {
-    position: 'absolute',
-    left: '12px',
-    color: 'var(--text-dim)'
-  },
-  searchInput: {
-    width: '100%',
-    background: 'var(--bg-primary)',
-    border: '1px solid var(--border-glass)',
-    borderRadius: '10px',
-    padding: '0.6rem 1rem 0.6rem 2.5rem',
-    color: 'white',
-    fontSize: '0.9rem',
-    outline: 'none'
-  },
-  searchDropdown: {
-    position: 'absolute',
-    top: '110%',
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    maxHeight: '300px',
-    overflowY: 'auto',
-    padding: '0.5rem',
-    boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
-  },
-  searchResultItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.8rem',
-    padding: '0.8rem',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    '&:hover': {
-      background: 'rgba(255,255,255,0.05)'
-    }
-  },
-  avatarSmall: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '8px',
-    background: 'var(--bg-secondary)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    fontSize: '0.9rem',
-    fontWeight: 'bold'
-  },
-  contactList: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '0.5rem'
-  },
-  contactItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-    padding: '1rem',
-    borderRadius: '12px',
-    cursor: 'pointer',
-    transition: 'var(--transition)',
-    marginBottom: '0.3rem',
-    borderLeft: '3px solid transparent'
-  },
-  avatar: {
-    width: '45px',
-    height: '45px',
-    borderRadius: '10px',
-    background: 'var(--bg-secondary)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    fontWeight: 'bold',
-    fontSize: '1.2rem',
-    position: 'relative',
-    color: 'var(--text-primary)'
-  },
-  unreadBadge: {
-    position: 'absolute',
-    top: '-5px',
-    right: '-5px',
-    background: '#f85149',
-    color: 'white',
-    borderRadius: '50%',
-    width: '18px',
-    height: '18px',
-    fontSize: '0.7rem',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    border: '2px solid var(--bg-primary)'
-  },
-  contactInfo: {
-    flex: 1,
-    minWidth: 0
-  },
-  contactHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '0.2rem'
-  },
-  contactName: {
-    fontWeight: '700',
-    fontSize: '0.9rem',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis'
-  },
-  contactTime: {
-    fontSize: '0.7rem',
-    color: 'var(--text-dim)'
-  },
-  lastMsg: {
-    fontSize: '0.8rem',
-    color: 'var(--text-secondary)',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis'
-  },
-  chatArea: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    background: 'rgba(255,255,255,0.01)'
-  },
-  chatHeader: {
-    padding: '1rem 1.5rem',
-    borderBottom: '1px solid var(--border-glass)',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  activeContact: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem'
-  },
-  activeName: {
-    fontSize: '1.1rem',
-    fontWeight: '700'
-  },
-  activeRole: {
-    fontSize: '0.75rem',
-    color: 'var(--text-dim)'
-  },
-  headerActions: {
-    display: 'flex',
-    gap: '1rem',
-    color: 'var(--text-secondary)'
-  },
-  actionIcon: {
-    cursor: 'pointer',
-    transition: 'var(--transition)'
-  },
-  messagesList: {
-    flex: 1,
-    padding: '1.5rem',
-    overflowY: 'auto',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1rem'
-  },
-  messageRow: {
-    display: 'flex'
-  },
-  messageBubble: {
-    maxWidth: '70%',
-    padding: '0.8rem 1rem',
-    borderRadius: '16px',
-    position: 'relative',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-  },
-  messageText: {
-    fontSize: '0.9rem',
-    lineHeight: '1.4'
-  },
-  messageMeta: {
-    fontSize: '0.7rem',
-    color: 'rgba(255,255,255,0.6)',
-    marginTop: '0.4rem',
-    display: 'flex',
-    justifyContent: 'flex-end',
-    alignItems: 'center'
-  },
-  emptyText: {
-    color: 'var(--text-dim)',
-    fontSize: '0.9rem'
-  },
-  center: {
-    flex: 1,
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  inputArea: {
-    padding: '1.5rem',
-    borderTop: '1px solid var(--border-glass)'
-  },
-  inputWrapper: {
-    background: 'var(--bg-secondary)',
-    borderRadius: '15px',
-    padding: '0.5rem 1rem',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-    border: '1px solid var(--border-glass)'
-  },
-  inputAction: {
-    color: 'var(--text-dim)',
-    cursor: 'pointer'
-  },
-  textInput: {
-    flex: 1,
-    background: 'transparent',
-    border: 'none',
-    color: 'white',
-    outline: 'none',
-    fontSize: '0.9rem'
-  },
-  sendBtn: {
-    background: 'var(--accent-student)',
-    color: 'white',
-    padding: '0.6rem',
-    borderRadius: '10px',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    border: 'none',
-    cursor: 'pointer'
-  }
+        <div className="flex-1 overflow-y-auto p-2">
+          {contacts.length === 0 ? (
+            <EmptyState icon={MessageSquare} title="No conversations yet" description="Search for a person above to start one." />
+          ) : contacts.map((c) => {
+            const active = idOf(c) === selectedId;
+            return (
+              <button
+                key={idOf(c)}
+                onClick={() => setSelected(c)}
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors cursor-pointer',
+                  active ? 'bg-accent-soft' : 'hover:bg-surface-hover',
+                )}
+              >
+                <Avatar name={c.fullName || c.name} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className={cn('truncate text-sm', c.unreadCount > 0 ? 'font-semibold' : 'font-medium')}>{c.fullName || c.name}</p>
+                    <span className="shrink-0 text-[11px] text-fg-subtle">{shortStamp(c.lastMessageTimestamp)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={cn('truncate text-sm', c.unreadCount > 0 ? 'text-fg' : 'text-fg-subtle')}>
+                      {c.lastMessage || ROLE_LABEL[c.role] || c.role}
+                    </p>
+                    {c.unreadCount > 0 && (
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold text-accent-fg">
+                        {c.unreadCount}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      {/* Thread */}
+      <section className={cn('min-w-0 flex-1 flex-col', selected ? 'flex' : 'hidden md:flex')}>
+        {!selected ? (
+          <EmptyState icon={MessageSquare} title="Select a conversation" description="Choose someone on the left, or search for a person." className="flex-1" />
+        ) : (
+          <>
+            <header className="flex h-16 items-center gap-3 border-b border-border px-4">
+              <button onClick={() => setSelected(null)} className="rounded-md p-1.5 text-fg-subtle hover:bg-surface-hover md:hidden" aria-label="Back">
+                <ArrowLeft className="size-4" />
+              </button>
+              <Avatar name={selected.fullName || selected.name} size="sm" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{selected.fullName || selected.name}</p>
+                <p className="text-xs text-fg-subtle">{ROLE_LABEL[selected.role] ?? selected.role}</p>
+              </div>
+              {selected.isNew && <Badge tone="accent" className="ml-auto">New conversation</Badge>}
+            </header>
+
+            <div ref={scrollRef} className="flex-1 space-y-1.5 overflow-y-auto bg-surface-muted/50 px-4 py-5">
+              {timeline.length === 0 ? (
+                <p className="py-16 text-center text-sm text-fg-subtle">No messages yet. Say hello 👋</p>
+              ) : timeline.map((m) => {
+                if (m.sep) {
+                  return (
+                    <div key={m.key} className="flex items-center gap-3 py-3">
+                      <div className="h-px flex-1 bg-border" />
+                      <span className="text-[11px] font-medium text-fg-subtle">{m.sep}</span>
+                      <div className="h-px flex-1 bg-border" />
+                    </div>
+                  );
+                }
+                const mine = m.senderId === user.id;
+                return (
+                  <div key={m.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+                    <div className={cn(
+                      'max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-card',
+                      mine ? 'rounded-br-md bg-accent text-accent-fg' : 'rounded-bl-md border border-border bg-surface',
+                    )}>
+                      <p className="break-words whitespace-pre-wrap">{m.content}</p>
+                      <p className={cn('mt-0.5 flex items-center justify-end gap-1 text-[10px]', mine ? 'text-accent-fg/70' : 'text-fg-subtle')}>
+                        {formatTime(m.timestamp)}
+                        {mine && (m.isRead ? <CheckCheck className="size-3" /> : <Check className="size-3" />)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <form onSubmit={send} className="flex items-center gap-2 border-t border-border p-3">
+              <Input
+                placeholder={`Message ${(selected.fullName || selected.name || '').split(' ')[0]}…`}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                className="h-10"
+              />
+              <Button type="submit" size="icon" className="h-10 w-10" loading={sending} disabled={!message.trim()} aria-label="Send">
+                {!sending && <SendHorizontal className="size-4" />}
+              </Button>
+            </form>
+          </>
+        )}
+      </section>
+    </Card>
+  );
 };
 
 export default Messages;

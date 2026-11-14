@@ -5,15 +5,21 @@ import com.obs.backend.exception.ErrorCode;
 import com.obs.backend.exception.ObsException;
 import com.obs.backend.model.*;
 import com.obs.backend.model.enums.EnrollmentStatus;
+import com.obs.backend.grading.GradingPolicy;
+import com.obs.backend.grading.StudentGpaRecalculator;
 import com.obs.backend.repository.*;
 import com.obs.backend.service.AcademicianService;
+import com.obs.backend.service.LoggingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,6 +42,9 @@ public class AcademicianServiceImpl implements AcademicianService {
     private final AnnouncementRepository announcementRepository;
     private final OfficeHourRepository officeHourRepository;
     private final NotificationRepository notificationRepository;
+    private final GradingPolicy gradingPolicy;
+    private final StudentGpaRecalculator studentGpaRecalculator;
+    private final LoggingService loggingService;
 
     @Override
     public AcademicianProfileDTO getProfile() {
@@ -102,17 +111,28 @@ public class AcademicianServiceImpl implements AcademicianService {
             throw new ObsException(ErrorCode.ACCESS_DENIED, "You are not the instructor of this course");
         }
 
-        return enrollmentRepository.findByCourseIdAndStatus(courseId, EnrollmentStatus.APPROVED).stream()
+        // This semester's students only: someone who took the course last year is not in today's class
+        Semester activeSemester = semesterRepository.findByIsActiveTrue().orElse(null);
+        if (activeSemester == null) {
+            return List.of();
+        }
+        List<Enrollment> enrollments = enrollmentRepository.findByCourseIdAndSemesterIdAndStatus(
+                courseId, activeSemester.getId(), EnrollmentStatus.APPROVED);
+
+        // Attendance of every student in one grouped query (plan 4.3): [enrollmentId, records, present]
+        Map<Long, long[]> attendance = new java.util.HashMap<>();
+        if (!enrollments.isEmpty()) {
+            for (Object[] row : attendanceRecordRepository.countPerEnrollment(
+                    enrollments.stream().map(Enrollment::getId).toList())) {
+                attendance.put((Long) row[0], new long[]{((Number) row[1]).longValue(), ((Number) row[2]).longValue()});
+            }
+        }
+
+        return enrollments.stream()
                 .map(enrollment -> {
                     var student = enrollment.getStudent();
-
-                    // Calculate attendance rate
-                    List<AttendanceRecord> records = attendanceRecordRepository.findByEnrollmentId(enrollment.getId());
-                    double attendanceRate = 100.0;
-                    if (!records.isEmpty()) {
-                        long presentCount = records.stream().filter(AttendanceRecord::isPresent).count();
-                        attendanceRate = (double) presentCount / records.size() * 100.0;
-                    }
+                    long[] counts = attendance.get(enrollment.getId());
+                    double attendanceRate = counts == null || counts[0] == 0 ? 100.0 : (double) counts[1] / counts[0] * 100.0;
 
                     return AcademicianStudentDTO.builder()
                             .id(student.getId())
@@ -164,7 +184,23 @@ public class AcademicianServiceImpl implements AcademicianService {
     @Override
     public List<com.obs.backend.dto.academician.AcademicianScheduleDTO> getMySchedule() {
         Academician currentHoca = getCurrentAcademician();
-        return scheduleRepository.findByCourseInstructorId(currentHoca.getId()).stream()
+        return toScheduleDTOs(scheduleRepository.findByCourseInstructorId(currentHoca.getId()));
+    }
+
+    /**
+     * Lessons with this semester's approved student count; the counts come from one grouped
+     * query instead of one per lesson (plan 4.3), and no longer include earlier semesters.
+     */
+    private List<com.obs.backend.dto.academician.AcademicianScheduleDTO> toScheduleDTOs(List<Schedule> schedules) {
+        Map<Long, Long> studentCounts = new java.util.HashMap<>();
+        Semester activeSemester = semesterRepository.findByIsActiveTrue().orElse(null);
+        if (activeSemester != null && !schedules.isEmpty()) {
+            var courseIds = schedules.stream().map(s -> s.getCourse().getId()).collect(Collectors.toSet());
+            for (Object[] row : enrollmentRepository.countPerCourseWithStatus(courseIds, activeSemester.getId(), EnrollmentStatus.APPROVED)) {
+                studentCounts.put((Long) row[0], (Long) row[1]);
+            }
+        }
+        return schedules.stream()
                 .map(schedule -> com.obs.backend.dto.academician.AcademicianScheduleDTO.builder()
                         .courseId(schedule.getCourse().getId())
                         .courseCode(schedule.getCourse().getCode())
@@ -173,25 +209,15 @@ public class AcademicianServiceImpl implements AcademicianService {
                         .dayOfWeek(schedule.getDayOfWeek())
                         .startTime(schedule.getStartTime())
                         .endTime(schedule.getEndTime())
-                        .studentCount((int) enrollmentRepository.countByCourseId(schedule.getCourse().getId()))
+                        .studentCount(studentCounts.getOrDefault(schedule.getCourse().getId(), 0L).intValue())
                         .build())
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<com.obs.backend.dto.academician.AcademicianScheduleDTO> getCourseSchedule(Long courseId) {
-        return scheduleRepository.findByCourseId(courseId).stream()
-                .map(schedule -> com.obs.backend.dto.academician.AcademicianScheduleDTO.builder()
-                        .courseId(schedule.getCourse().getId())
-                        .courseCode(schedule.getCourse().getCode())
-                        .courseName(schedule.getCourse().getName())
-                        .classroomName(schedule.getClassroom().getCode())
-                        .dayOfWeek(schedule.getDayOfWeek())
-                        .startTime(schedule.getStartTime())
-                        .endTime(schedule.getEndTime())
-                        .studentCount((int) enrollmentRepository.countByCourseId(schedule.getCourse().getId()))
-                        .build())
-                .collect(Collectors.toList());
+        requireOwnCourse(courseId);
+        return toScheduleDTOs(scheduleRepository.findByCourseId(courseId));
     }
 
     @Override
@@ -204,8 +230,8 @@ public class AcademicianServiceImpl implements AcademicianService {
                         .firstName(student.getFirstName())
                         .lastName(student.getLastName())
                         .gpa(student.getGpa())
-                        .isAtRisk(student.getGpa() < 2.0)
-                        .departmentName(student.getDepartment().getName())
+                        .isAtRisk(student.getGpa() != null && student.getGpa() < 2.0)
+                        .departmentName(student.getDepartment() != null ? student.getDepartment().getName() : "N/A")
                         .currentSemester(student.getCurrentSemester())
                         .build())
                 .collect(Collectors.toList());
@@ -224,6 +250,10 @@ public class AcademicianServiceImpl implements AcademicianService {
 
         Semester activeSemester = semesterRepository.findByIsActiveTrue()
                 .orElseThrow(() -> new ObsException(ErrorCode.INTERNAL_SERVER_ERROR, "Active semester not found"));
+
+        validateExamRequest(request);
+        requireGradesNotFinalized(course, activeSemester);
+        requireWeightWithinLimit(course, activeSemester, null, request.getRatio());
 
         Classroom classroom = classroomRepository.findById(request.getClassroomId())
                 .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Classroom not found"));
@@ -251,15 +281,28 @@ public class AcademicianServiceImpl implements AcademicianService {
             throw new ObsException(ErrorCode.ACCESS_DENIED, "You are not the instructor of this course");
         }
 
+        validateExamRequest(request);
+        requireGradesNotFinalized(exam.getCourse(), exam.getSemester());
+        requireWeightWithinLimit(exam.getCourse(), exam.getSemester(), exam.getId(), request.getRatio());
+
         Classroom classroom = classroomRepository.findById(request.getClassroomId())
                 .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Classroom not found"));
 
+        boolean ratioChanged = !request.getRatio().equals(exam.getRatio());
         exam.setExamType(request.getExamType());
         exam.setExamDate(request.getExamDate());
         exam.setRatio(request.getRatio());
         exam.setClassroom(classroom);
 
         examRepository.save(exam);
+
+        if (ratioChanged) {
+            // Keep the running scores in line with the new weight
+            gradeRepository.findByExamId(exam.getId()).stream()
+                    .map(Grade::getEnrollment)
+                    .distinct()
+                    .forEach(this::recalculateScore);
+        }
     }
 
     @Override
@@ -274,7 +317,50 @@ public class AcademicianServiceImpl implements AcademicianService {
             throw new ObsException(ErrorCode.ACCESS_DENIED, "You are not the instructor of this course");
         }
 
+        requireGradesNotFinalized(exam.getCourse(), exam.getSemester());
+        if (gradeRepository.existsByExamId(exam.getId())) {
+            throw new ObsException(ErrorCode.CONFLICT,
+                    "This exam already has scores; it cannot be deleted");
+        }
+
         examRepository.delete(exam);
+    }
+
+    /** Plan 2.5: an exam needs a type, a date, a classroom and a weight in (0, 100]. */
+    private void validateExamRequest(ExamRequest request) {
+        if (request.getExamType() == null || request.getExamDate() == null || request.getClassroomId() == null) {
+            throw new ObsException(ErrorCode.VALIDATION_ERROR, "Exam type, date and classroom are required");
+        }
+        if (request.getRatio() == null || request.getRatio() <= 0 || request.getRatio() > 100) {
+            throw new ObsException(ErrorCode.VALIDATION_ERROR, "Exam weight must be greater than 0 and at most 100");
+        }
+    }
+
+    /** The weights of a course's exams in one semester may not exceed 100%. */
+    private void requireWeightWithinLimit(Course course, Semester semester, Long excludedExamId, double ratio) {
+        double others = examRepository.findByCourseIdAndSemesterId(course.getId(), semester.getId()).stream()
+                .filter(e -> !e.getId().equals(excludedExamId))
+                .mapToDouble(Exam::getRatio)
+                .sum();
+        if (others + ratio > 100.0 + 1e-9) {
+            throw new ObsException(ErrorCode.VALIDATION_ERROR, String.format(
+                    "Exam weights would total %.0f%%; the other exams already use %.0f%%", others + ratio, others));
+        }
+    }
+
+    /** Once grades are finalized the exam setup of that course and semester is frozen. */
+    private void requireGradesNotFinalized(Course course, Semester semester) {
+        if (semester == null) {
+            return;
+        }
+        boolean finalized = enrollmentRepository
+                .findByCourseIdAndSemesterIdAndStatus(course.getId(), semester.getId(), EnrollmentStatus.APPROVED)
+                .stream()
+                .anyMatch(Enrollment::isGradeFinalized);
+        if (finalized) {
+            throw new ObsException(ErrorCode.CONFLICT,
+                    "Grades of " + course.getCode() + " are finalized; its exams cannot be changed");
+        }
     }
 
     @Override
@@ -332,28 +418,32 @@ public class AcademicianServiceImpl implements AcademicianService {
             throw new ObsException(ErrorCode.ACCESS_DENIED, "You are not the instructor of this course");
         }
 
+        if (request.getGrades() == null || request.getGrades().isEmpty()) {
+            throw new ObsException(ErrorCode.VALIDATION_ERROR, "No grades given");
+        }
         for (GradeEntryRequest.StudentGradeDTO gradeDto : request.getGrades()) {
-            Enrollment enrollment = enrollmentRepository
-                    .findByCourseIdAndStudentId(exam.getCourse().getId(), gradeDto.getStudentId())
-                    .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND,
-                            "Enrollment not found for student " + gradeDto.getStudentId()));
+            if (gradeDto.getStudentId() == null || gradeDto.getScore() == null
+                    || gradeDto.getScore() < 0 || gradeDto.getScore() > 100) {
+                throw new ObsException(ErrorCode.VALIDATION_ERROR,
+                        "Score must be between 0 and 100 (student " + gradeDto.getStudentId() + ")");
+            }
+        }
+
+        for (GradeEntryRequest.StudentGradeDTO gradeDto : request.getGrades()) {
+            Enrollment enrollment = findEnrollmentForExam(exam, gradeDto.getStudentId());
 
             if (enrollment.getStatus() != EnrollmentStatus.APPROVED) {
                 throw new ObsException(ErrorCode.VALIDATION_ERROR,
                         "Cannot enter grade for non-approved enrollment of student " + gradeDto.getStudentId());
             }
+            if (enrollment.isGradeFinalized()) {
+                throw new ObsException(ErrorCode.CONFLICT, "Grades of " + exam.getCourse().getCode()
+                        + " are finalized; use a grade correction instead");
+            }
 
-            // Find existing grade or create new
-            Grade grade = gradeRepository.findByEnrollmentId(enrollment.getId()).stream()
-                    .filter(g -> g.getExam().getId().equals(examId))
-                    .findFirst()
-                    .orElse(Grade.builder().enrollment(enrollment).exam(exam).build());
-
-            grade.setScore(gradeDto.getScore());
-            gradeRepository.save(grade);
-
-            // Real-time calculation
-            updateEnrollmentScore(enrollment);
+            saveExamScore(enrollment, exam, gradeDto.getScore());
+            // Running score only: the letter grade is assigned when the instructor finalizes (K1)
+            recalculateScore(enrollment);
 
             // Notify student
             notificationRepository.save(Notification.builder()
@@ -364,35 +454,142 @@ public class AcademicianServiceImpl implements AcademicianService {
         }
     }
 
-    private void updateEnrollmentScore(Enrollment enrollment) {
-        List<Grade> studentGrades = gradeRepository.findByEnrollmentId(enrollment.getId());
+    private Enrollment findEnrollmentForExam(Exam exam, Long studentId) {
+        // A student can take the same course again in a later semester: match the exam's semester
+        return enrollmentRepository
+                .findByCourseIdAndStudentIdAndSemesterId(exam.getCourse().getId(), studentId, exam.getSemester().getId())
+                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND,
+                        "Enrollment not found for student " + studentId));
+    }
+
+    private void saveExamScore(Enrollment enrollment, Exam exam, Double score) {
+        Grade grade = gradeRepository.findByEnrollmentIdAndExamId(enrollment.getId(), exam.getId())
+                .orElse(Grade.builder().enrollment(enrollment).exam(exam).build());
+        grade.setScore(score);
+        gradeRepository.save(grade);
+    }
+
+    /** Weighted score from the exam grades entered so far; does not assign a letter. */
+    private double recalculateScore(Enrollment enrollment) {
         double totalScore = 0.0;
-        for (Grade g : studentGrades) {
-            totalScore += (g.getScore() * g.getExam().getRatio() / 100.0);
+        for (Grade g : gradeRepository.findByEnrollmentId(enrollment.getId())) {
+            totalScore += g.getScore() * g.getExam().getRatio() / 100.0;
         }
         enrollment.setScore(totalScore);
-
-        // Simple Grade translation logic (can be moved to a strategy later)
-        if (totalScore >= 90)
-            enrollment.setGrade("AA");
-        else if (totalScore >= 85)
-            enrollment.setGrade("BA");
-        else if (totalScore >= 80)
-            enrollment.setGrade("BB");
-        else if (totalScore >= 75)
-            enrollment.setGrade("CB");
-        else if (totalScore >= 70)
-            enrollment.setGrade("CC");
-        else if (totalScore >= 65)
-            enrollment.setGrade("DC");
-        else if (totalScore >= 60)
-            enrollment.setGrade("DD");
-        else if (totalScore >= 50)
-            enrollment.setGrade("FD");
-        else
-            enrollment.setGrade("FF");
-
         enrollmentRepository.save(enrollment);
+        return totalScore;
+    }
+
+    @Override
+    @Transactional
+    public GradeFinalizationResult finalizeGrades(@lombok.NonNull Long courseId) {
+        Course course = requireOwnCourse(courseId);
+        Semester semester = semesterRepository.findByIsActiveTrue()
+                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Active semester not found"));
+
+        List<Exam> exams = examRepository.findByCourseIdAndSemesterId(courseId, semester.getId());
+        if (exams.isEmpty()) {
+            throw new ObsException(ErrorCode.BAD_REQUEST, "No exams are defined for " + course.getCode() + " in " + semester.getName());
+        }
+        double totalRatio = exams.stream().mapToDouble(Exam::getRatio).sum();
+        if (Math.abs(totalRatio - 100.0) > 0.01) {
+            throw new ObsException(ErrorCode.BAD_REQUEST,
+                    "Exam weights must add up to 100% before finalizing (current: " + totalRatio + "%)");
+        }
+
+        List<Enrollment> enrollments = enrollmentRepository
+                .findByCourseIdAndSemesterIdAndStatus(courseId, semester.getId(), EnrollmentStatus.APPROVED);
+        if (enrollments.isEmpty()) {
+            throw new ObsException(ErrorCode.BAD_REQUEST, "There are no approved students to grade");
+        }
+        List<Enrollment> toFinalize = enrollments.stream().filter(e -> !e.isGradeFinalized()).toList();
+        if (toFinalize.isEmpty()) {
+            throw new ObsException(ErrorCode.CONFLICT, "Grades of " + course.getCode() + " are already finalized");
+        }
+
+        // Every student needs a score for every exam; report all gaps at once
+        List<String> missing = new ArrayList<>();
+        for (Enrollment enrollment : toFinalize) {
+            Set<Long> graded = gradeRepository.findByEnrollmentId(enrollment.getId()).stream()
+                    .map(g -> g.getExam().getId())
+                    .collect(Collectors.toSet());
+            for (Exam exam : exams) {
+                if (!graded.contains(exam.getId())) {
+                    missing.add(enrollment.getStudent().getStudentNumber() + " (" + exam.getExamType() + ")");
+                }
+            }
+        }
+        if (!missing.isEmpty()) {
+            String shown = String.join(", ", missing.subList(0, Math.min(20, missing.size())));
+            throw new ObsException(ErrorCode.BAD_REQUEST, "Missing scores: " + shown
+                    + (missing.size() > 20 ? " and " + (missing.size() - 20) + " more" : ""));
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (Enrollment enrollment : toFinalize) {
+            double score = recalculateScore(enrollment);
+            enrollment.setGrade(gradingPolicy.letterFor(score));
+            enrollment.setGradeFinalizedAt(now);
+            enrollmentRepository.save(enrollment);
+
+            notificationRepository.save(Notification.builder()
+                    .user(enrollment.getStudent())
+                    .title("[" + course.getCode() + "] Final grade")
+                    .message("Your final grade is " + enrollment.getGrade() + String.format(" (%.2f)", score))
+                    .build());
+        }
+
+        studentGpaRecalculator.recalculateAll(toFinalize);
+
+        loggingService.log("GRADES_FINALIZED",
+                course.getCode() + " " + semester.getName() + ": " + toFinalize.size() + " students",
+                getCurrentAcademician().getUsername(), "Course", String.valueOf(courseId));
+
+        return GradeFinalizationResult.builder()
+                .courseCode(course.getCode())
+                .semesterName(semester.getName())
+                .finalizedCount(toFinalize.size())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void correctFinalizedGrade(@lombok.NonNull Long examId, @lombok.NonNull GradeCorrectionRequest request) {
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Exam not found"));
+        Course course = requireOwnCourse(exam.getCourse().getId());
+
+        if (request.getReason() == null || request.getReason().trim().length() < 10) {
+            throw new ObsException(ErrorCode.VALIDATION_ERROR, "A reason of at least 10 characters is required");
+        }
+        if (request.getScore() == null || request.getScore() < 0 || request.getScore() > 100) {
+            throw new ObsException(ErrorCode.VALIDATION_ERROR, "Score must be between 0 and 100");
+        }
+
+        Enrollment enrollment = findEnrollmentForExam(exam, request.getStudentId());
+        if (!enrollment.isGradeFinalized()) {
+            throw new ObsException(ErrorCode.BAD_REQUEST, "Grades are not finalized yet; enter the score normally");
+        }
+
+        String oldLetter = enrollment.getGrade();
+        double oldScore = enrollment.getScore() != null ? enrollment.getScore() : 0.0;
+        saveExamScore(enrollment, exam, request.getScore());
+        double newScore = recalculateScore(enrollment);
+        enrollment.setGrade(gradingPolicy.letterFor(newScore));
+        enrollmentRepository.save(enrollment);
+        studentGpaRecalculator.recalculate(enrollment.getStudent());
+
+        notificationRepository.save(Notification.builder()
+                .user(enrollment.getStudent())
+                .title("[" + course.getCode() + "] Grade corrected")
+                .message("Your final grade is now " + enrollment.getGrade() + String.format(" (%.2f)", newScore))
+                .build());
+
+        loggingService.log("GRADE_CORRECTED",
+                String.format("%s %s %s: %s -> %s (%.2f -> %.2f). Reason: %s", course.getCode(),
+                        enrollment.getStudent().getStudentNumber(), exam.getExamType(), oldLetter,
+                        enrollment.getGrade(), oldScore, newScore, request.getReason().trim()),
+                getCurrentAcademician().getUsername(), "Enrollment", String.valueOf(enrollment.getId()));
     }
 
     @Override
@@ -424,8 +621,10 @@ public class AcademicianServiceImpl implements AcademicianService {
             if (s.getDayOfWeek() == currentDay) {
                 LocalTime startTime = s.getStartTime();
                 LocalTime allowedEndTime = s.getEndTime().plusHours(2);
+                // A late lesson's window wraps past midnight (23:00 + 2h = 01:00): then it lasts to the day's end
+                boolean wrapsPastMidnight = allowedEndTime.isBefore(s.getEndTime());
 
-                if (!currentTime.isBefore(startTime) && !currentTime.isAfter(allowedEndTime)) {
+                if (!currentTime.isBefore(startTime) && (wrapsPastMidnight || !currentTime.isAfter(allowedEndTime))) {
                     isWithinWindow = true;
                     break;
                 }
@@ -438,9 +637,13 @@ public class AcademicianServiceImpl implements AcademicianService {
         }
         // ------------------------------
 
+        // A student retaking the course has one enrollment per semester: use this semester's
+        Semester activeSemester = semesterRepository.findByIsActiveTrue()
+                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Active semester not found"));
+
         for (AttendanceEntryRequest.StudentAttendanceDTO attendanceDto : request.getAttendance()) {
             Enrollment enrollment = enrollmentRepository
-                    .findByCourseIdAndStudentId(courseId, attendanceDto.getStudentId())
+                    .findByCourseIdAndStudentIdAndSemesterId(courseId, attendanceDto.getStudentId(), activeSemester.getId())
                     .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND,
                             "Enrollment not found for student " + attendanceDto.getStudentId()));
 
@@ -467,6 +670,7 @@ public class AcademicianServiceImpl implements AcademicianService {
 
     @Override
     public List<AttendanceEntryRequest.StudentAttendanceDTO> getTodayAttendance(Long courseId) {
+        requireOwnCourse(courseId);
         LocalDate todayDate = LocalDate.now();
         List<AttendanceRecord> records = attendanceRecordRepository.findByEnrollmentCourseIdAndAttendanceDate(courseId,
                 todayDate);
@@ -505,13 +709,10 @@ public class AcademicianServiceImpl implements AcademicianService {
         }
 
         // Rule 2: Active AKTS Load Check (Max 30)
-        Semester activeSemester = semesterRepository.findAll().stream()
-                .filter(Semester::isActive)
-                .findFirst()
+        Semester activeSemester = semesterRepository.findByIsActiveTrue()
                 .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "No active semester found"));
 
-        int currentAktsLoad = courseRepository.findByInstructorId(currentHoca.getId()).stream()
-                .filter(Course::isOpen)
+        int currentAktsLoad = courseRepository.findByInstructorIdAndOpenTrue(currentHoca.getId()).stream()
                 .mapToInt(Course::getAkts)
                 .sum();
 
@@ -559,6 +760,17 @@ public class AcademicianServiceImpl implements AcademicianService {
         chatMessageRepository.save(message);
     }
 
+    /** Loads a course and checks that the signed-in academician teaches it. */
+    private Course requireOwnCourse(Long courseId) {
+        Academician currentHoca = getCurrentAcademician();
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Course not found"));
+        if (course.getInstructor() == null || !course.getInstructor().getId().equals(currentHoca.getId())) {
+            throw new ObsException(ErrorCode.ACCESS_DENIED, "You are not the instructor of this course");
+        }
+        return course;
+    }
+
     private Academician getCurrentAcademician() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) {
@@ -598,6 +810,11 @@ public class AcademicianServiceImpl implements AcademicianService {
     @Transactional
     public void rejectEnrollment(@lombok.NonNull Long enrollmentId) {
         Enrollment enrollment = getAndVerifyAdviseeEnrollment(enrollmentId);
+        // Only a request can be rejected; deleting an approved enrollment would drop its grades
+        if (enrollment.getStatus() != EnrollmentStatus.PENDING) {
+            throw new ObsException(ErrorCode.CONFLICT, "Only pending registrations can be rejected");
+        }
+        // Deleting the request frees its quota place (plan 3.2)
         enrollmentRepository.delete(enrollment);
     }
 
@@ -624,14 +841,15 @@ public class AcademicianServiceImpl implements AcademicianService {
         // Notify all enrolled students
         List<Enrollment> enrollments = enrollmentRepository.findByCourseIdAndStatus(courseId,
                 EnrollmentStatus.APPROVED);
+        // notifications.message is VARCHAR(255): a long title must not break the announcement
+        String preview = request.getTitle() + ": "
+                + (request.getContent().length() > 50 ? request.getContent().substring(0, 47) + "..." : request.getContent());
+        String message = preview.length() > 255 ? preview.substring(0, 252) + "..." : preview;
         List<Notification> notifications = enrollments.stream()
-                .filter(e -> e.getStatus() == EnrollmentStatus.APPROVED)
                 .map(e -> Notification.builder()
                         .user(e.getStudent())
                         .title("[" + course.getCode() + "] Course Announcement")
-                        .message(request.getTitle() + ": "
-                                + (request.getContent().length() > 50 ? request.getContent().substring(0, 47) + "..."
-                                        : request.getContent()))
+                        .message(message)
                         .build())
                 .collect(Collectors.toList());
         notificationRepository.saveAll(notifications);
@@ -639,7 +857,7 @@ public class AcademicianServiceImpl implements AcademicianService {
 
     @Override
     public List<Announcement> getCourseAnnouncements(@lombok.NonNull Long courseId) {
-        // Anyone can view announcements of a course (keeping it simple)
+        requireOwnCourse(courseId);
         return announcementRepository.findByCourseIdOrderByTimestampDesc(courseId);
     }
 
@@ -680,16 +898,19 @@ public class AcademicianServiceImpl implements AcademicianService {
             throw new ObsException(ErrorCode.ACCESS_DENIED, "You are not the instructor of this course");
         }
 
-        List<Enrollment> enrollments = enrollmentRepository.findByCourseIdAndStatus(courseId, EnrollmentStatus.APPROVED)
-                .stream()
-                .filter(e -> e.getStatus() == EnrollmentStatus.APPROVED)
-                .collect(Collectors.toList());
+        List<Enrollment> enrollments = enrollmentRepository.findByCourseIdAndStatus(courseId, EnrollmentStatus.APPROVED);
+
+        boolean gradesFinalized = semesterRepository.findByIsActiveTrue()
+                .map(sem -> enrollmentRepository.findByCourseIdAndSemesterIdAndStatus(courseId, sem.getId(), EnrollmentStatus.APPROVED))
+                .map(current -> !current.isEmpty() && current.stream().allMatch(Enrollment::isGradeFinalized))
+                .orElse(false);
 
         if (enrollments.isEmpty()) {
             return CourseAnalyticsResponse.builder()
                     .totalStudents(0L)
                     .averageScore(0.0)
                     .passRate(0.0)
+                    .gradesFinalized(false)
                     .build();
         }
 
@@ -716,6 +937,7 @@ public class AcademicianServiceImpl implements AcademicianService {
                 .maxScore(max)
                 .passedStudents(passed)
                 .passRate((double) passed / enrollments.size() * 100.0)
+                .gradesFinalized(gradesFinalized)
                 .build();
     }
 

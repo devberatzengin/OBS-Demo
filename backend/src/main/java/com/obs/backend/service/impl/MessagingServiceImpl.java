@@ -153,8 +153,9 @@ public class MessagingServiceImpl implements MessagingService {
 
         @Override
         @Transactional
-        public void markAsRead(Long messageId) {
+        public void markAsRead(String username, Long messageId) {
                 ChatMessage message = chatMessageRepository.findById(messageId)
+                                .filter(m -> m.getReceiver().getUsername().equals(username))
                                 .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Message not found"));
                 message.setRead(true);
                 chatMessageRepository.save(message);

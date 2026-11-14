@@ -1,5 +1,6 @@
 package com.obs.backend.integration;
 
+import com.obs.backend.support.AbstractIntegrationTest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obs.backend.dto.academician.*;
 import com.obs.backend.model.*;
@@ -9,14 +10,11 @@ import com.obs.backend.repository.*;
 import com.obs.backend.model.enums.EnrollmentStatus;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,13 +25,10 @@ import java.util.List;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Transactional
-public class AcademicianIntegrationTest {
+public class AcademicianIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -73,6 +68,9 @@ public class AcademicianIntegrationTest {
 
     @Autowired
     private AttendanceRecordRepository attendanceRecordRepository;
+
+    @Autowired
+    private ScheduleRepository scheduleRepository;
 
     private Academician testHoca;
     private Classroom testClassroom;
@@ -264,7 +262,8 @@ public class AcademicianIntegrationTest {
 
         // Midterm result: 80 * 0.4 = 32
         Enrollment updated1 = enrollmentRepository.findById(enrollment.getId()).orElseThrow();
-        Assertions.assertEquals(32.0, updated1.getScore());
+        Assertions.assertEquals(32.0, updated1.getScore(), 1e-9);
+        Assertions.assertNull(updated1.getGrade());
 
         // Final grade: 90
         GradeEntryRequest finalGrade = GradeEntryRequest.builder()
@@ -276,10 +275,17 @@ public class AcademicianIntegrationTest {
                         .content(objectMapper.writeValueAsString(finalGrade)))
                 .andExpect(status().isOk());
 
-        // Final result: (80*0.4) + (90*0.6) = 32 + 54 = 86 (BA)
+        // Final result: (80*0.4) + (90*0.6) = 32 + 54 = 86, but no letter until the instructor finalizes (K1)
         Enrollment updated2 = enrollmentRepository.findById(enrollment.getId()).orElseThrow();
-        Assertions.assertEquals(86.0, updated2.getScore());
-        Assertions.assertEquals("BA", updated2.getGrade());
+        Assertions.assertEquals(86.0, updated2.getScore(), 1e-9);
+        Assertions.assertNull(updated2.getGrade());
+
+        mockMvc.perform(post("/api/academician/courses/" + course.getId() + "/finalize-grades"))
+                .andExpect(status().isOk());
+
+        Enrollment finalized = enrollmentRepository.findById(enrollment.getId()).orElseThrow();
+        Assertions.assertEquals("BA", finalized.getGrade());
+        Assertions.assertTrue(finalized.isGradeFinalized());
     }
 
     @Test
@@ -288,6 +294,14 @@ public class AcademicianIntegrationTest {
     void shouldRecordAttendance() throws Exception {
         Course course = courseRepository.findByInstructorId(testHoca.getId()).get(0);
         Student student = studentRepository.findByAdvisorId(testHoca.getId()).get(0);
+
+        // Attendance is only accepted during a lesson (or up to 2 hours after it), so put one around now
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        java.time.LocalTime end = now.toLocalTime().isAfter(java.time.LocalTime.of(21, 59))
+                ? java.time.LocalTime.of(21, 59) : now.toLocalTime();
+        scheduleRepository.save(Schedule.builder()
+                .course(course).classroom(testClassroom).dayOfWeek(now.getDayOfWeek())
+                .startTime(java.time.LocalTime.MIDNIGHT).endTime(end).build());
 
         AttendanceEntryRequest request = AttendanceEntryRequest.builder()
                 .attendanceDate(LocalDate.now())
@@ -346,11 +360,13 @@ public class AcademicianIntegrationTest {
     @Order(12)
     @DisplayName("Should manage advisor approvals")
     void shouldManageApprovals() throws Exception {
-        // Create a PENDING enrollment
+        // Turn the existing enrollment into a request: a second row for the same
+        // student, course and semester is rejected by the database (V3)
         Course course = courseRepository.findByInstructorId(testHoca.getId()).get(0);
         Student student = studentRepository.findByAdvisorId(testHoca.getId()).get(0);
-        Enrollment pending = enrollmentRepository.save(Enrollment.builder()
-                .course(course).student(student).semester(testSemester).status(EnrollmentStatus.PENDING).build());
+        Enrollment pending = enrollmentRepository.findByCourseIdAndStudentId(course.getId(), student.getId()).orElseThrow();
+        pending.setStatus(EnrollmentStatus.PENDING);
+        pending = enrollmentRepository.save(pending);
 
         // 1. List pending
         mockMvc.perform(get("/api/academician/advisees/enrollments/pending"))
