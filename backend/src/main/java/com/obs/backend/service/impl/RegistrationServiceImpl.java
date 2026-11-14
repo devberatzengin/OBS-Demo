@@ -48,9 +48,15 @@ public class RegistrationServiceImpl implements RegistrationService {
             return List.of();
         }
         // Open courses of the department, plus anything the student already asked for this semester
-        return courseRepository.findByDepartmentId(student.getDepartment().getId())
+        List<Course> courses = courseRepository.findByDepartmentId(student.getDepartment().getId())
                 .stream()
                 .filter(c -> c.isOpen() || thisSemester.containsKey(c.getId()))
+                .toList();
+        // Quota usage of every listed course in one query instead of one per course (plan 4.3)
+        Map<Long, Long> taken = enrollmentValidator.takenPlaces(
+                courses.stream().filter(EnrollmentValidator::hasQuota).toList(), activeSemester);
+
+        return courses.stream()
                 .map(c -> {
                     Enrollment enrollment = thisSemester.get(c.getId());
                     boolean registered = enrollment != null && enrollment.getStatus() != EnrollmentStatus.REJECTED;
@@ -67,7 +73,7 @@ public class RegistrationServiceImpl implements RegistrationService {
                             .mandatory(mandatory.contains(c.getId()))
                             .passed(enrollmentValidator.isPassedForGood(history, c.getId()))
                             .quota(hasQuota ? c.getQuota() : null)
-                            .enrolledCount(hasQuota ? enrollmentValidator.takenPlaces(c, activeSemester) : null)
+                            .enrolledCount(hasQuota ? taken.getOrDefault(c.getId(), 0L) : null)
                             .status(enrollment != null ? enrollment.getStatus().name() : null)
                             .build();
                 })

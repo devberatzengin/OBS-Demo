@@ -14,6 +14,8 @@ import java.util.List;
 
 @Repository
 public interface CourseRepository extends JpaRepository<Course, Long> {
+    /** The registration screen shows every course's instructor. */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "instructor")
     List<Course> findByDepartmentId(Long departmentId);
     List<Course> findByInstructorId(Long instructorId);
     List<Course> findByInstructorIdAndOpenTrue(Long instructorId);

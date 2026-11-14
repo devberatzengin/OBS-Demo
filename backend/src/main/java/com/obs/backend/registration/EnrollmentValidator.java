@@ -97,6 +97,19 @@ public class EnrollmentValidator {
                 course.getId(), semester.getId(), EnrollmentStatus.REJECTED);
     }
 
+    /** Places taken in many courses with one grouped query (plan 4.3); courses without places are absent. */
+    public Map<Long, Long> takenPlaces(Collection<Course> courses, Semester semester) {
+        Map<Long, Long> taken = new HashMap<>();
+        if (courses.isEmpty()) {
+            return taken;
+        }
+        for (Object[] row : enrollmentRepository.countPerCourseExcludingStatus(
+                courses.stream().map(Course::getId).toList(), semester.getId(), EnrollmentStatus.REJECTED)) {
+            taken.put((Long) row[0], (Long) row[1]);
+        }
+        return taken;
+    }
+
     /** Null and 0 mean the course has no quota (plan decision K8). */
     public static boolean hasQuota(Course course) {
         return course.getQuota() != null && course.getQuota() > 0;

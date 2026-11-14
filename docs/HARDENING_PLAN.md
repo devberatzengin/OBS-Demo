@@ -235,8 +235,8 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - [x] Admin listeleri ve audit log'a `Pageable`; frontend sayfa geçişi
 
 **4.3 N+1**
-- [ ] Hibernate statistics ile sorgu sayısı testi
-- [ ] `@EntityGraph`/fetch join: transkript, danışman listesi, ders öğrenci listesi, kayıt ekranı
+- [x] Hibernate statistics ile sorgu sayısı testi
+- [x] `@EntityGraph`/fetch join: transkript, danışman listesi, ders öğrenci listesi, kayıt ekranı
 - Test: 1 ve 50 kayıtlı öğrencide transkript aynı sorgu sayısı.
 
 **4.4 Yük ölçümü**
@@ -307,4 +307,8 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - 4.2: Duyuru içeriği 3.4'te 2000 karakterle sınırlanmıştı, ama `notifications.message` sütunu 255 karakter. Sınır 255'e indi; ders duyurusu bildirimi de 255'e kırpılıyor.
 - 4.2: AdminPortal sunucu sayfalamasına geçti (karar: tam sunucu sayfalaması). Bölüm başına sayılar `departments` yanıtında, atanmamış ders sayısı `stats`'ta, danışman ve hoca seçicileri yeni `GET /api/admin/users/academicians/options` ucunda.
 - 4.2: Test fabrikası ortak test şifresini bir kez hash'liyor (BCrypt kasıtlı yavaş; 30 öğrencilik testlerde fark ediyor).
+- İlk gerçek test koşusu (14 Kasım, Berat'ın Mac'i): 635 testin 623'ü geçti. Gerçek hata tekti: `List.of(id).contains(null)` NPE fırlatıyor ve tek ders kaydı ucu 500 veriyordu. Kalanlar test kurulum hatalarıydı (yoklama testinde ders saati yoktu, danışman testi mükerrer kayıt ekliyordu, dönem testi yanlış JSON alanına bakıyordu). Düzeltmelerden sonra testler henüz yeniden çalıştırılmadı.
+- 4.3: Sorgu sayısı testleri sabit sayı yerine "az satır ile çok satır aynı sayıda sorgu atmalı" diye ölçüyor; böylece ilgisiz değişikliklerde kırılmıyor.
+- 4.3: Planda dört ekran vardı; danışmanın bekleyen talepleri ve hocanın haftalık programı da N+1'liydi (program her ders saati için ayrı sayım sorgusu atıyordu).
+- 4.3 (doğruluk): Dersin öğrenci listesi ve programdaki öğrenci sayısı tüm dönemlerin onaylı kayıtlarını sayıyordu; dersi geçen yıl almış öğrenci bu dönemin listesinde görünüyordu. Artık sadece aktif dönem.
 

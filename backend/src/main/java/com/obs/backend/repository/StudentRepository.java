@@ -14,6 +14,7 @@ import java.util.Optional;
 public interface StudentRepository extends JpaRepository<Student, Long> {
     Optional<Student> findByStudentNumber(String studentNumber);
     Optional<Student> findByUsername(String username);
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "department")
     java.util.List<Student> findByAdvisorId(Long advisorId);
     boolean existsByStudentNumber(String studentNumber);
     long countByDepartmentId(Long departmentId);

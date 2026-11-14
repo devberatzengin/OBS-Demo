@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -110,17 +111,28 @@ public class AcademicianServiceImpl implements AcademicianService {
             throw new ObsException(ErrorCode.ACCESS_DENIED, "You are not the instructor of this course");
         }
 
-        return enrollmentRepository.findByCourseIdAndStatus(courseId, EnrollmentStatus.APPROVED).stream()
+        // This semester's students only: someone who took the course last year is not in today's class
+        Semester activeSemester = semesterRepository.findByIsActiveTrue().orElse(null);
+        if (activeSemester == null) {
+            return List.of();
+        }
+        List<Enrollment> enrollments = enrollmentRepository.findByCourseIdAndSemesterIdAndStatus(
+                courseId, activeSemester.getId(), EnrollmentStatus.APPROVED);
+
+        // Attendance of every student in one grouped query (plan 4.3): [enrollmentId, records, present]
+        Map<Long, long[]> attendance = new java.util.HashMap<>();
+        if (!enrollments.isEmpty()) {
+            for (Object[] row : attendanceRecordRepository.countPerEnrollment(
+                    enrollments.stream().map(Enrollment::getId).toList())) {
+                attendance.put((Long) row[0], new long[]{((Number) row[1]).longValue(), ((Number) row[2]).longValue()});
+            }
+        }
+
+        return enrollments.stream()
                 .map(enrollment -> {
                     var student = enrollment.getStudent();
-
-                    // Calculate attendance rate
-                    List<AttendanceRecord> records = attendanceRecordRepository.findByEnrollmentId(enrollment.getId());
-                    double attendanceRate = 100.0;
-                    if (!records.isEmpty()) {
-                        long presentCount = records.stream().filter(AttendanceRecord::isPresent).count();
-                        attendanceRate = (double) presentCount / records.size() * 100.0;
-                    }
+                    long[] counts = attendance.get(enrollment.getId());
+                    double attendanceRate = counts == null || counts[0] == 0 ? 100.0 : (double) counts[1] / counts[0] * 100.0;
 
                     return AcademicianStudentDTO.builder()
                             .id(student.getId())
@@ -172,7 +184,23 @@ public class AcademicianServiceImpl implements AcademicianService {
     @Override
     public List<com.obs.backend.dto.academician.AcademicianScheduleDTO> getMySchedule() {
         Academician currentHoca = getCurrentAcademician();
-        return scheduleRepository.findByCourseInstructorId(currentHoca.getId()).stream()
+        return toScheduleDTOs(scheduleRepository.findByCourseInstructorId(currentHoca.getId()));
+    }
+
+    /**
+     * Lessons with this semester's approved student count; the counts come from one grouped
+     * query instead of one per lesson (plan 4.3), and no longer include earlier semesters.
+     */
+    private List<com.obs.backend.dto.academician.AcademicianScheduleDTO> toScheduleDTOs(List<Schedule> schedules) {
+        Map<Long, Long> studentCounts = new java.util.HashMap<>();
+        Semester activeSemester = semesterRepository.findByIsActiveTrue().orElse(null);
+        if (activeSemester != null && !schedules.isEmpty()) {
+            var courseIds = schedules.stream().map(s -> s.getCourse().getId()).collect(Collectors.toSet());
+            for (Object[] row : enrollmentRepository.countPerCourseWithStatus(courseIds, activeSemester.getId(), EnrollmentStatus.APPROVED)) {
+                studentCounts.put((Long) row[0], (Long) row[1]);
+            }
+        }
+        return schedules.stream()
                 .map(schedule -> com.obs.backend.dto.academician.AcademicianScheduleDTO.builder()
                         .courseId(schedule.getCourse().getId())
                         .courseCode(schedule.getCourse().getCode())
@@ -181,7 +209,7 @@ public class AcademicianServiceImpl implements AcademicianService {
                         .dayOfWeek(schedule.getDayOfWeek())
                         .startTime(schedule.getStartTime())
                         .endTime(schedule.getEndTime())
-                        .studentCount((int) enrollmentRepository.countByCourseId(schedule.getCourse().getId()))
+                        .studentCount(studentCounts.getOrDefault(schedule.getCourse().getId(), 0L).intValue())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -189,18 +217,7 @@ public class AcademicianServiceImpl implements AcademicianService {
     @Override
     public List<com.obs.backend.dto.academician.AcademicianScheduleDTO> getCourseSchedule(Long courseId) {
         requireOwnCourse(courseId);
-        return scheduleRepository.findByCourseId(courseId).stream()
-                .map(schedule -> com.obs.backend.dto.academician.AcademicianScheduleDTO.builder()
-                        .courseId(schedule.getCourse().getId())
-                        .courseCode(schedule.getCourse().getCode())
-                        .courseName(schedule.getCourse().getName())
-                        .classroomName(schedule.getClassroom().getCode())
-                        .dayOfWeek(schedule.getDayOfWeek())
-                        .startTime(schedule.getStartTime())
-                        .endTime(schedule.getEndTime())
-                        .studentCount((int) enrollmentRepository.countByCourseId(schedule.getCourse().getId()))
-                        .build())
-                .collect(Collectors.toList());
+        return toScheduleDTOs(scheduleRepository.findByCourseId(courseId));
     }
 
     @Override
@@ -214,7 +231,7 @@ public class AcademicianServiceImpl implements AcademicianService {
                         .lastName(student.getLastName())
                         .gpa(student.getGpa())
                         .isAtRisk(student.getGpa() != null && student.getGpa() < 2.0)
-                        .departmentName(student.getDepartment().getName())
+                        .departmentName(student.getDepartment() != null ? student.getDepartment().getName() : "N/A")
                         .currentSemester(student.getCurrentSemester())
                         .build())
                 .collect(Collectors.toList());
