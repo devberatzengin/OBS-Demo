@@ -147,7 +147,7 @@ public class TestDataFactory {
         long n = next();
         return academicianRepository.save(Academician.builder()
                 .username("acad" + n)
-                .password(passwordEncoder.encode(PASSWORD))
+                .password(encodedPassword())
                 .email("acad" + n + "@test.edu")
                 .firstName("Acad")
                 .lastName("Test" + n)
@@ -162,7 +162,7 @@ public class TestDataFactory {
         long n = next();
         return studentRepository.save(Student.builder()
                 .username("stu" + n)
-                .password(passwordEncoder.encode(PASSWORD))
+                .password(encodedPassword())
                 .email("stu" + n + "@test.edu")
                 .firstName("Stu")
                 .lastName("Test" + n)
@@ -179,7 +179,7 @@ public class TestDataFactory {
         long n = next();
         return administrativeRepository.save(Administrative.builder()
                 .username("staff" + n)
-                .password(passwordEncoder.encode(PASSWORD))
+                .password(encodedPassword())
                 .email("staff" + n + "@test.edu")
                 .firstName("Staff")
                 .lastName("Test" + n)
@@ -214,5 +214,15 @@ public class TestDataFactory {
 
     public TodoItem todo(User owner, String title) {
         return todoItemRepository.save(TodoItem.builder().title(title).user(owner).build());
+    }
+
+    private String encodedPassword;
+
+    /** BCrypt is slow on purpose; hash the shared test password once instead of for every user. */
+    private String encodedPassword() {
+        if (encodedPassword == null) {
+            encodedPassword = passwordEncoder.encode(PASSWORD);
+        }
+        return encodedPassword;
     }
 }

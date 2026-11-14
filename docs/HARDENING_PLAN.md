@@ -230,9 +230,9 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - [x] IDOR: başka öğrencinin kaydı, başkasının sohbeti, başka hocanın sınavı
 
 **4.2 Sorgular ve sayfalama**
-- [ ] 13 `findAll().stream().filter` → repository sorguları
-- [ ] Duyuru gönderimi batch insert
-- [ ] Admin listeleri ve audit log'a `Pageable`; frontend sayfa geçişi
+- [x] 13 `findAll().stream().filter` → repository sorguları
+- [x] Duyuru gönderimi batch insert
+- [x] Admin listeleri ve audit log'a `Pageable`; frontend sayfa geçişi
 
 **4.3 N+1**
 - [ ] Hibernate statistics ile sorgu sayısı testi
@@ -302,4 +302,9 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - Kritik: `POST /api/auth/register` herkese açıktı ve rolü istekten alıyordu. `ad.soyad@uni.edu.tr` biçiminde bir adresle giriş yapmadan ADMIN hesabı açılabiliyordu. Frontend bu ucu kullanmıyordu; uç, servis metodu, `RegisterRequest` ve sadece orada kullanılan `EmailValidator` silindi. Hesapları admin ve personel açıyor (K3). İlk sistem analizinde bu açık gözden kaçmıştı.
 - 4.1: Matris 92 uç × 5 çağıran (anonim, öğrenci, hoca, personel, admin). Rolü olmayan çağıran güvenlik filtresinde, boş gövdeli 401/403 ile durmalı; rolü olan filtreyi geçmeli. Servisin döndürdüğü 400/404 ya da JSON gövdeli 403 serbest. Bu ayrım, 3.4'te rol kurallarının `SecurityConfig`'e de eklenmesine dayanıyor.
 - 4.1: Sohbet ve yapılacaklar uçları herkese açık ama servis her zaman giriş yapan kullanıcının verisini döndürüyor; IDOR testi sohbet için bunu doğruluyor.
+- 4.2: Planda 13 yazıyordu; gerçekte iş yapan bellek-içi filtre 8 taneydi (aktif dönem ×3, rol filtresi, not arama, sınav listesi, açık dersler, gereksiz bir durum filtresi). Diğer `findAll()`'lar zaten tam liste döndürüyordu; sayfalı listelere dönüştüler.
+- 4.2: Duyuru tek `INSERT ... SELECT` ile gidiyor. Hibernate IDENTITY id'lerde JDBC batch yapamadığı için `saveAll` her kullanıcı için ayrı INSERT atıyordu. Pasif hesaplar artık duyuru almıyor.
+- 4.2: Duyuru içeriği 3.4'te 2000 karakterle sınırlanmıştı, ama `notifications.message` sütunu 255 karakter. Sınır 255'e indi; ders duyurusu bildirimi de 255'e kırpılıyor.
+- 4.2: AdminPortal sunucu sayfalamasına geçti (karar: tam sunucu sayfalaması). Bölüm başına sayılar `departments` yanıtında, atanmamış ders sayısı `stats`'ta, danışman ve hoca seçicileri yeni `GET /api/admin/users/academicians/options` ucunda.
+- 4.2: Test fabrikası ortak test şifresini bir kez hash'liyor (BCrypt kasıtlı yavaş; 30 öğrencilik testlerde fark ediyor).
 

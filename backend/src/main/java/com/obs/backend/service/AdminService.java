@@ -1,5 +1,8 @@
 package com.obs.backend.service;
 
+import com.obs.backend.dto.admin.AcademicianOptionDTO;
+import com.obs.backend.dto.common.PageResponse;
+
 import com.obs.backend.dto.admin.*;
 
 import java.util.List;
@@ -32,7 +35,7 @@ public interface AdminService {
     void activateSemester(Long id);
 
     // Course Operations
-    List<AdminCourseDTO> getAllCourses();
+    PageResponse<AdminCourseDTO> getCourses(String query, Long departmentId, int page, int size);
     AdminCourseDTO createCourse(AdminCourseDTO courseDTO);
     AdminCourseDTO updateCourse(Long id, AdminCourseDTO courseDTO);
     AdminCourseDTO assignInstructor(Long courseId, Long instructorId);
@@ -57,9 +60,12 @@ public interface AdminService {
     void sendGlobalAnnouncement(AdminAnnouncementRequest request);
 
     // Detailed Listings
-    List<AdminStudentRegisterRequest> getAllStudentsDetail();
-    List<AdminAcademicianRegisterRequest> getAllAcademiciansDetail();
-    List<AdminAdministrativeRegisterRequest> getAllAdministrativesDetail();
+    // Paged admin lists (plan 4.2); departmentId null means every department
+    PageResponse<AdminStudentRegisterRequest> getStudents(String query, Long departmentId, int page, int size);
+    PageResponse<AdminAcademicianRegisterRequest> getAcademicians(String query, Long departmentId, int page, int size);
+    PageResponse<AdminAdministrativeRegisterRequest> getAdministratives(String query, int page, int size);
+    /** Every academician as id and name, for the advisor and instructor pickers. */
+    List<AcademicianOptionDTO> getAcademicianOptions();
 
     // CRUD Updates & Deletes
     void updateStudent(Long id, AdminStudentRegisterRequest request);

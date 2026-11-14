@@ -143,9 +143,10 @@ public class AdminIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(studentReq)))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/admin/users/students"))
+        mockMvc.perform(get("/api/admin/users/students").param("q", studentReq.getUsername()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].firstName", hasItem("Test")));
+                .andExpect(jsonPath("$.content[*].firstName", hasItem("Test")))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     // --- Phase 4: Operational Control ---

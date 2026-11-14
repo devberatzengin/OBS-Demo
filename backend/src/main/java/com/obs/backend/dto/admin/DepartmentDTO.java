@@ -18,4 +18,7 @@ public class DepartmentDTO {
     @NotNull
     private Long facultyId;
     private String facultyName;
+    /** Filled by the department list (read only). */
+    private Long studentCount;
+    private Long courseCount;
 }

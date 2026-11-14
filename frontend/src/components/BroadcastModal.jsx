@@ -49,10 +49,10 @@ export default function BroadcastModal({ open, onClose }) {
           </Select>
         </Field>
         <Field label="Title" htmlFor="bc-title">
-          <Input id="bc-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <Input id="bc-title" maxLength={255} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
         </Field>
         <Field label="Message" htmlFor="bc-content">
-          <Textarea id="bc-content" rows={5} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
+          <Textarea id="bc-content" rows={5} maxLength={255} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
         </Field>
       </div>
     </Modal>

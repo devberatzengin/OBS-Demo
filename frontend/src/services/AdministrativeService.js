@@ -1,5 +1,9 @@
 import api from './api';
 
+const clean = (params = {}) => Object.fromEntries(
+  Object.entries(params).filter(([, v]) => v !== '' && v !== null && v !== undefined),
+);
+
 const AdministrativeService = {
   // Infrastructure
   getFaculties: async () => {
@@ -34,8 +38,9 @@ const AdministrativeService = {
     const response = await api.get('/admin/operations/stats');
     return response.data;
   },
-  getLogs: async () => {
-    const response = await api.get('/admin/operations/logs');
+  // Paged, newest first: { content, page, size, totalElements, totalPages }
+  getLogs: async ({ page = 0, size = 10 } = {}) => {
+    const response = await api.get('/admin/operations/logs', { params: { page, size } });
     return response.data;
   },
   sendAnnouncement: async (data) => {
@@ -65,16 +70,22 @@ const AdministrativeService = {
     const response = await api.post('/admin/users/administrative', data);
     return response.data;
   },
-  getAllStudents: async () => {
-    const response = await api.get('/admin/users/students');
+  // Paged lists. params: { page, size, q, departmentId }; empty values are left out
+  getStudents: async (params) => {
+    const response = await api.get('/admin/users/students', { params: clean(params) });
     return response.data;
   },
-  getAllAcademicians: async () => {
-    const response = await api.get('/admin/users/academicians');
+  getAcademicians: async (params) => {
+    const response = await api.get('/admin/users/academicians', { params: clean(params) });
     return response.data;
   },
-  getAllAdministratives: async () => {
-    const response = await api.get('/admin/users/administrative');
+  getAdministratives: async (params) => {
+    const response = await api.get('/admin/users/administrative', { params: clean(params) });
+    return response.data;
+  },
+  // [{ id, name, departmentId }] for the advisor and instructor pickers
+  getAcademicianOptions: async () => {
+    const response = await api.get('/admin/users/academicians/options');
     return response.data;
   },
   updateStudent: async (id, data) => {
@@ -100,8 +111,8 @@ const AdministrativeService = {
   },
 
   // Course Management
-  getAllCourses: async () => {
-    const response = await api.get('/admin/academics/courses');
+  getCourses: async (params) => {
+    const response = await api.get('/admin/academics/courses', { params: clean(params) });
     return response.data;
   },
   createCourse: async (data) => {

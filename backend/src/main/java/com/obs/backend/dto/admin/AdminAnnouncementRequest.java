@@ -14,7 +14,8 @@ import lombok.NoArgsConstructor;
 public class AdminAnnouncementRequest {
     @NotBlank @Size(max = 255)
     private String title;
-    @NotBlank @Size(max = 2000)
+    /** Stored as notifications.message, VARCHAR(255). */
+    @NotBlank @Size(max = 255)
     private String content;
     private String targetRole; // STUDENT, ACADEMICIAN or ALL
 }

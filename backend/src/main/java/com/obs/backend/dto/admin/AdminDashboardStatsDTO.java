@@ -18,4 +18,5 @@ public class AdminDashboardStatsDTO {
     private long administrativeCount;
     private String activeSemesterName;
     private String unitName;
+    private long unassignedCourseCount;
 }

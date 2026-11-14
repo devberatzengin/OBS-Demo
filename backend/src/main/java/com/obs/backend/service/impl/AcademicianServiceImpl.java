@@ -446,9 +446,7 @@ public class AcademicianServiceImpl implements AcademicianService {
     }
 
     private void saveExamScore(Enrollment enrollment, Exam exam, Double score) {
-        Grade grade = gradeRepository.findByEnrollmentId(enrollment.getId()).stream()
-                .filter(g -> g.getExam().getId().equals(exam.getId()))
-                .findFirst()
+        Grade grade = gradeRepository.findByEnrollmentIdAndExamId(enrollment.getId(), exam.getId())
                 .orElse(Grade.builder().enrollment(enrollment).exam(exam).build());
         grade.setScore(score);
         gradeRepository.save(grade);
@@ -472,9 +470,7 @@ public class AcademicianServiceImpl implements AcademicianService {
         Semester semester = semesterRepository.findByIsActiveTrue()
                 .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "Active semester not found"));
 
-        List<Exam> exams = examRepository.findByCourseId(courseId).stream()
-                .filter(e -> e.getSemester().getId().equals(semester.getId()))
-                .toList();
+        List<Exam> exams = examRepository.findByCourseIdAndSemesterId(courseId, semester.getId());
         if (exams.isEmpty()) {
             throw new ObsException(ErrorCode.BAD_REQUEST, "No exams are defined for " + course.getCode() + " in " + semester.getName());
         }
@@ -694,13 +690,10 @@ public class AcademicianServiceImpl implements AcademicianService {
         }
 
         // Rule 2: Active AKTS Load Check (Max 30)
-        Semester activeSemester = semesterRepository.findAll().stream()
-                .filter(Semester::isActive)
-                .findFirst()
+        Semester activeSemester = semesterRepository.findByIsActiveTrue()
                 .orElseThrow(() -> new ObsException(ErrorCode.RESOURCE_NOT_FOUND, "No active semester found"));
 
-        int currentAktsLoad = courseRepository.findByInstructorId(currentHoca.getId()).stream()
-                .filter(Course::isOpen)
+        int currentAktsLoad = courseRepository.findByInstructorIdAndOpenTrue(currentHoca.getId()).stream()
                 .mapToInt(Course::getAkts)
                 .sum();
 
@@ -829,14 +822,15 @@ public class AcademicianServiceImpl implements AcademicianService {
         // Notify all enrolled students
         List<Enrollment> enrollments = enrollmentRepository.findByCourseIdAndStatus(courseId,
                 EnrollmentStatus.APPROVED);
+        // notifications.message is VARCHAR(255): a long title must not break the announcement
+        String preview = request.getTitle() + ": "
+                + (request.getContent().length() > 50 ? request.getContent().substring(0, 47) + "..." : request.getContent());
+        String message = preview.length() > 255 ? preview.substring(0, 252) + "..." : preview;
         List<Notification> notifications = enrollments.stream()
-                .filter(e -> e.getStatus() == EnrollmentStatus.APPROVED)
                 .map(e -> Notification.builder()
                         .user(e.getStudent())
                         .title("[" + course.getCode() + "] Course Announcement")
-                        .message(request.getTitle() + ": "
-                                + (request.getContent().length() > 50 ? request.getContent().substring(0, 47) + "..."
-                                        : request.getContent()))
+                        .message(message)
                         .build())
                 .collect(Collectors.toList());
         notificationRepository.saveAll(notifications);
@@ -885,10 +879,7 @@ public class AcademicianServiceImpl implements AcademicianService {
             throw new ObsException(ErrorCode.ACCESS_DENIED, "You are not the instructor of this course");
         }
 
-        List<Enrollment> enrollments = enrollmentRepository.findByCourseIdAndStatus(courseId, EnrollmentStatus.APPROVED)
-                .stream()
-                .filter(e -> e.getStatus() == EnrollmentStatus.APPROVED)
-                .collect(Collectors.toList());
+        List<Enrollment> enrollments = enrollmentRepository.findByCourseIdAndStatus(courseId, EnrollmentStatus.APPROVED);
 
         boolean gradesFinalized = semesterRepository.findByIsActiveTrue()
                 .map(sem -> enrollmentRepository.findByCourseIdAndSemesterIdAndStatus(courseId, sem.getId(), EnrollmentStatus.APPROVED))

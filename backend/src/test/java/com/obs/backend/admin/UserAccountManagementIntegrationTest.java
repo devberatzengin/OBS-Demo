@@ -120,8 +120,8 @@ class UserAccountManagementIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(delete("/api/admin/users/" + student.getId()).with(auth.as(admin)))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/admin/users/students").with(auth.as(admin)))
+        mockMvc.perform(get("/api/admin/users/students").param("q", student.getUsername()).with(auth.as(admin)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == " + student.getId() + ")].active").value(false));
+                .andExpect(jsonPath("$.content[?(@.id == " + student.getId() + ")].active").value(false));
     }
 }

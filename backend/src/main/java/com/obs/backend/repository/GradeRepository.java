@@ -9,6 +9,7 @@ import java.util.List;
 @Repository
 public interface GradeRepository extends JpaRepository<Grade, Long> {
     List<Grade> findByEnrollmentId(Long enrollmentId);
+    java.util.Optional<Grade> findByEnrollmentIdAndExamId(Long enrollmentId, Long examId);
     List<Grade> findByExamId(Long examId);
     boolean existsByExamId(Long examId);
     void deleteByExamId(Long examId);

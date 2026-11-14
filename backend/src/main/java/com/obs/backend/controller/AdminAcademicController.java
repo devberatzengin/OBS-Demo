@@ -1,5 +1,6 @@
 package com.obs.backend.controller;
 
+import com.obs.backend.dto.common.PageResponse;
 import jakarta.validation.Valid;
 
 import com.obs.backend.dto.admin.AdminCourseDTO;
@@ -46,8 +47,10 @@ public class AdminAcademicController {
     // --- Course Operations ---
 
     @GetMapping("/courses")
-    public ResponseEntity<List<AdminCourseDTO>> getAllCourses() {
-        return ResponseEntity.ok(adminService.getAllCourses());
+    public ResponseEntity<PageResponse<AdminCourseDTO>> getCourses(
+            @RequestParam(required = false) String q, @RequestParam(required = false) Long departmentId,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "25") int size) {
+        return ResponseEntity.ok(adminService.getCourses(q, departmentId, page, size));
     }
 
     @PostMapping("/courses")

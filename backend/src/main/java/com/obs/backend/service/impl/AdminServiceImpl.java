@@ -1,5 +1,10 @@
 package com.obs.backend.service.impl;
 
+import com.obs.backend.dto.admin.AcademicianOptionDTO;
+import com.obs.backend.dto.common.PageResponse;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+
 import com.obs.backend.dto.admin.*;
 import com.obs.backend.exception.ErrorCode;
 import com.obs.backend.exception.ObsException;
@@ -13,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -74,12 +80,17 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public List<DepartmentDTO> getAllDepartments() {
+        // Two grouped counts instead of loading every student and course (plan 4.2)
+        Map<Long, Long> students = toCountMap(studentRepository.countPerDepartment());
+        Map<Long, Long> courses = toCountMap(courseRepository.countPerDepartment());
         return departmentRepository.findAll().stream()
                 .map(d -> DepartmentDTO.builder()
                         .id(d.getId())
                         .name(d.getName())
                         .facultyId(d.getFaculty() != null ? d.getFaculty().getId() : null)
                         .facultyName(d.getFaculty() != null ? d.getFaculty().getName() : "N/A")
+                        .studentCount(students.getOrDefault(d.getId(), 0L))
+                        .courseCount(courses.getOrDefault(d.getId(), 0L))
                         .build())
                 .collect(Collectors.toList());
     }
@@ -271,9 +282,7 @@ public class AdminServiceImpl implements AdminService {
     @Transactional
     public void activateSemester(@lombok.NonNull Long id) {
         // 1. Deactivate all others
-        List<Semester> activeSemesters = semesterRepository.findAll().stream()
-                .filter(Semester::isActive)
-                .collect(Collectors.toList());
+        List<Semester> activeSemesters = semesterRepository.findAllByIsActiveTrue();
         
         for (Semester s : activeSemesters) {
             s.setActive(false);
@@ -292,10 +301,10 @@ public class AdminServiceImpl implements AdminService {
     // Course Operations
 
     @Override
-    public List<AdminCourseDTO> getAllCourses() {
-        return courseRepository.findAll().stream()
-                .map(this::mapToAdminCourseDTO)
-                .collect(Collectors.toList());
+    public PageResponse<AdminCourseDTO> getCourses(String query, Long departmentId, int page, int size) {
+        var pageable = PageRequest.of(PageResponse.safePage(page), PageResponse.safeSize(size), Sort.by("code"));
+        return PageResponse.of(courseRepository.search(PageResponse.likePattern(query), departmentId == null,
+                departmentId == null ? 0L : departmentId, pageable), this::mapToAdminCourseDTO);
     }
 
     @Override
@@ -489,7 +498,7 @@ public class AdminServiceImpl implements AdminService {
         
         long studentCount = studentRepository.count();
         long academicianCount = academicianRepository.count();
-        long administrativeCount = userRepository.findAllByRoleIn(java.util.Arrays.asList(com.obs.backend.model.enums.Role.ADMIN, com.obs.backend.model.enums.Role.ADMINISTRATIVE)).size();
+        long administrativeCount = userRepository.countByRoleIn(List.of(Role.ADMIN, Role.ADMINISTRATIVE));
         long departmentCount = departmentRepository.count();
         long facultyCount = facultyRepository.count();
         long courseCount = courseRepository.count();
@@ -525,9 +534,8 @@ public class AdminServiceImpl implements AdminService {
                 .courseCount(courseCount)
                 .administrativeCount(administrativeCount)
                 .unitName(unitName)
-                .activeSemesterName(semesterRepository.findAll().stream()
-                        .filter(Semester::isActive)
-                        .findFirst()
+                .unassignedCourseCount(courseRepository.countByInstructorIsNull())
+                .activeSemesterName(semesterRepository.findByIsActiveTrue()
                         .map(Semester::getName)
                         .orElse("No Active Semester"))
                 .build();
@@ -536,86 +544,80 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional
     public void sendGlobalAnnouncement(@lombok.NonNull AdminAnnouncementRequest request) {
-        // Entegrasyon: Tüm hedef kullanıcılara notification oluşturma
-        List<User> targetUsers;
-        
-        String role = (request.getTargetRole() != null) ? request.getTargetRole().toUpperCase() : "ALL";
-        
-        switch (role) {
-            case "STUDENT" -> targetUsers = userRepository.findAll().stream()
-                    .filter(u -> u.getRole() != null && u.getRole() == Role.STUDENT).collect(Collectors.toList());
-            case "ACADEMICIAN" -> targetUsers = userRepository.findAll().stream()
-                    .filter(u -> u.getRole() != null && u.getRole() == Role.ACADEMICIAN).collect(Collectors.toList());
-            default -> targetUsers = userRepository.findAll();
-        }
-
-        List<Notification> announcements = targetUsers.stream()
-                .map(u -> Notification.builder()
-                        .user(u)
-                        .title(request.getTitle())
-                        .message(request.getContent())
-                        .isRead(false)
-                        .build())
-                .collect(Collectors.toList());
-
-        @lombok.NonNull List<Notification> announcementsToSave = announcements;
-        notificationRepository.saveAll(announcementsToSave);
+        String target = request.getTargetRole() != null ? request.getTargetRole().toUpperCase() : "ALL";
+        List<String> roles = switch (target) {
+            case "STUDENT" -> List.of(Role.STUDENT.name());
+            case "ACADEMICIAN" -> List.of(Role.ACADEMICIAN.name());
+            case "ALL" -> java.util.Arrays.stream(Role.values()).map(Role::name).toList();
+            default -> throw new ObsException(ErrorCode.VALIDATION_ERROR, "targetRole: must be ALL, STUDENT or ACADEMICIAN");
+        };
+        // One INSERT ... SELECT instead of loading every user and saving one row at a time (plan 4.2)
+        notificationRepository.notifyAllWithRoles(request.getTitle(), request.getContent(), roles);
     }
 
     @Override
-    public List<AdminStudentRegisterRequest> getAllStudentsDetail() {
-        return studentRepository.findAll().stream()
-                .map(s -> AdminStudentRegisterRequest.builder()
-                        .id(s.getId())
-                        .username(s.getUsername())
-                        .email(s.getEmail())
-                        .firstName(s.getFirstName())
-                        .lastName(s.getLastName())
-                        .studentNumber(s.getStudentNumber())
-                        .departmentId(s.getDepartment() != null ? s.getDepartment().getId() : null)
-                        .advisorId(s.getAdvisor() != null ? s.getAdvisor().getId() : null)
-                        .active(s.isActive())
-                        .build())
-                .collect(Collectors.toList());
+    public PageResponse<AdminStudentRegisterRequest> getStudents(String query, Long departmentId, int page, int size) {
+        var pageable = PageRequest.of(PageResponse.safePage(page), PageResponse.safeSize(size),
+                Sort.by("lastName", "firstName", "id"));
+        return PageResponse.of(studentRepository.search(PageResponse.likePattern(query), departmentId == null,
+                departmentId == null ? 0L : departmentId, pageable), s -> AdminStudentRegisterRequest.builder()
+                .id(s.getId())
+                .username(s.getUsername())
+                .email(s.getEmail())
+                .firstName(s.getFirstName())
+                .lastName(s.getLastName())
+                .studentNumber(s.getStudentNumber())
+                .departmentId(s.getDepartment() != null ? s.getDepartment().getId() : null)
+                .advisorId(s.getAdvisor() != null ? s.getAdvisor().getId() : null)
+                .active(s.isActive())
+                .build());
     }
 
     @Override
-    public List<AdminAcademicianRegisterRequest> getAllAcademiciansDetail() {
-        return academicianRepository.findAll().stream()
-                .map(a -> AdminAcademicianRegisterRequest.builder()
+    public PageResponse<AdminAcademicianRegisterRequest> getAcademicians(String query, Long departmentId, int page, int size) {
+        var pageable = PageRequest.of(PageResponse.safePage(page), PageResponse.safeSize(size),
+                Sort.by("lastName", "firstName", "id"));
+        return PageResponse.of(academicianRepository.search(PageResponse.likePattern(query), departmentId == null,
+                departmentId == null ? 0L : departmentId, pageable), a -> AdminAcademicianRegisterRequest.builder()
+                .id(a.getId())
+                .username(a.getUsername())
+                .email(a.getEmail())
+                .firstName(a.getFirstName())
+                .lastName(a.getLastName())
+                .academicTitle(a.getAcademicTitle())
+                .departmentId(a.getDepartment() != null ? a.getDepartment().getId() : null)
+                .officeNumber(a.getOfficeNumber())
+                .staffNumber(a.getStaffNumber())
+                .active(a.isActive())
+                .build());
+    }
+
+    @Override
+    public PageResponse<AdminAdministrativeRegisterRequest> getAdministratives(String query, int page, int size) {
+        var pageable = PageRequest.of(PageResponse.safePage(page), PageResponse.safeSize(size),
+                Sort.by("lastName", "firstName", "id"));
+        // One query for the page; the old version loaded every user and then each staff row by id
+        return PageResponse.of(administrativeRepository.search(PageResponse.likePattern(query), pageable),
+                a -> AdminAdministrativeRegisterRequest.builder()
                         .id(a.getId())
                         .username(a.getUsername())
                         .email(a.getEmail())
                         .firstName(a.getFirstName())
                         .lastName(a.getLastName())
-                        .academicTitle(a.getAcademicTitle())
-                        .departmentId(a.getDepartment().getId())
-                        .officeNumber(a.getOfficeNumber())
                         .staffNumber(a.getStaffNumber())
+                        .position(a.getPosition() != null ? a.getPosition() : (a.getRole() == Role.ADMIN ? "Root Admin" : "Staff"))
+                        .role(a.getRole().name())
                         .active(a.isActive())
-                        .build())
-                .collect(Collectors.toList());
+                        .build());
     }
 
     @Override
-    public List<AdminAdministrativeRegisterRequest> getAllAdministrativesDetail() {
-        return userRepository.findAllByRoleIn(java.util.Arrays.asList(com.obs.backend.model.enums.Role.ADMIN, com.obs.backend.model.enums.Role.ADMINISTRATIVE))
-                .stream()
-                .map(u -> {
-                    Administrative adminData = administrativeRepository.findById(u.getId()).orElse(null);
-                    return AdminAdministrativeRegisterRequest.builder()
-                            .id(u.getId())
-                            .username(u.getUsername())
-                            .email(u.getEmail())
-                            .firstName(u.getFirstName())
-                            .lastName(u.getLastName())
-                            .staffNumber(adminData != null ? adminData.getStaffNumber() : "N/A")
-                            .position(adminData != null ? adminData.getPosition() : (u.getRole() == com.obs.backend.model.enums.Role.ADMIN ? "Root Admin" : "Staff"))
-                            .role(u.getRole().name())
-                            .active(u.isActive())
-                            .build();
-                })
-                .collect(Collectors.toList());
+    public List<AcademicianOptionDTO> getAcademicianOptions() {
+        return academicianRepository.findAll(Sort.by("lastName", "firstName")).stream()
+                .map(a -> new AcademicianOptionDTO(a.getId(),
+                        ((a.getAcademicTitle() != null ? a.getAcademicTitle() + " " : "") + a.getFirstName() + " " + a.getLastName()).trim(),
+                        a.getDepartment() != null ? a.getDepartment().getId() : null))
+                .toList();
     }
 
     @Override
@@ -758,5 +760,13 @@ public class AdminServiceImpl implements AdminService {
             throw new ObsException(ErrorCode.VALIDATION_ERROR, "password: is required for a new account");
         }
         return password;
+    }
+
+    private static Map<Long, Long> toCountMap(List<Object[]> rows) {
+        Map<Long, Long> counts = new java.util.HashMap<>();
+        for (Object[] row : rows) {
+            counts.put((Long) row[0], (Long) row[1]);
+        }
+        return counts;
     }
 }

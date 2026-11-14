@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   GraduationCap, School, Shield, BookOpen, Plus, Search, Pencil, Trash2, Building2, Layers, Activity, UserX, RotateCcw,
@@ -8,17 +8,20 @@ import AdministrativeService from '../services/AdministrativeService';
 import { useAuth } from '../context/AuthContext';
 import BroadcastModal from '../components/BroadcastModal';
 import {
-  Alert, Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, Field, Input, Modal, PageHeader, Select,
+  Alert, Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select,
   Spinner, StatCard, Table, TBody, TD, TH, THead, TR, Tabs, useToast,
 } from '../components/ui';
 import { formatDateTime } from '../lib/format';
 import { apiError, fieldErrors } from '../lib/errors';
 
 const ROLE_TABS = [
-  { id: 'STUDENT', label: 'Students', icon: GraduationCap, key: 'students' },
-  { id: 'ACADEMICIAN', label: 'Academicians', icon: School, key: 'academicians' },
-  { id: 'ADMINISTRATIVE', label: 'Staff', icon: Shield, key: 'administratives' },
+  { id: 'STUDENT', label: 'Students', icon: GraduationCap, fetch: AdministrativeService.getStudents },
+  { id: 'ACADEMICIAN', label: 'Academicians', icon: School, fetch: AdministrativeService.getAcademicians },
+  { id: 'ADMINISTRATIVE', label: 'Staff', icon: Shield, fetch: AdministrativeService.getAdministratives },
 ];
+
+const PAGE_SIZE = 25;
+const EMPTY_PAGE = { content: [], page: 0, totalPages: 0, totalElements: 0 };
 
 const EMPTY_USER = {
   username: '', password: '', email: '', firstName: '', lastName: '',
@@ -51,13 +54,17 @@ const AdminPortal = () => {
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
-  const [users, setUsers] = useState({ students: [], academicians: [], administratives: [] });
-  const [courses, setCourses] = useState([]);
   const [faculties, setFaculties] = useState([]);
   const [departments, setDepartments] = useState([]);
-  const [logs, setLogs] = useState([]);
+  const [academicians, setAcademicians] = useState([]); // [{ id, name, departmentId }] for the pickers
+  const [logs, setLogs] = useState(EMPTY_PAGE);
+  const [logPage, setLogPage] = useState(0);
+  // The users or courses list on screen: one page from the server (plan 4.2)
+  const [loaded, setLoaded] = useState({ key: null, data: EMPTY_PAGE });
+  const [pageState, setPageState] = useState({ key: null, page: 0 });
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [listVersion, setListVersion] = useState(0); // bump to reload the current page
   const [partialError, setPartialError] = useState(false);
-
   const [role, setRole] = useState('STUDENT');
   const [query, setQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState('ALL');
@@ -69,27 +76,60 @@ const AdminPortal = () => {
   const [deleting, setDeleting] = useState(false);
   const [broadcast, setBroadcast] = useState(false);
 
+  // Everything except the paged list: summary numbers, pickers and the department counts
   const load = useCallback(() => Promise.allSettled([
     AdministrativeService.getStats(),
-    AdministrativeService.getAllStudents(),
-    AdministrativeService.getAllAcademicians(),
-    AdministrativeService.getAllAdministratives(),
-    AdministrativeService.getAllCourses(),
     AdministrativeService.getFaculties(),
     AdministrativeService.getDepartments(),
-    AdministrativeService.getLogs(),
+    AdministrativeService.getAcademicianOptions(),
   ]).then((r) => {
     const val = (i, fallback) => (r[i].status === 'fulfilled' ? r[i].value ?? fallback : fallback);
     setStats(val(0, null));
-    setUsers({ students: val(1, []), academicians: val(2, []), administratives: val(3, []) });
-    setCourses(val(4, []));
-    setFaculties(val(5, []));
-    setDepartments(val(6, []));
-    setLogs(val(7, []));
+    setFaculties(val(1, []));
+    setDepartments(val(2, []));
+    setAcademicians(val(3, []));
     setPartialError(r.some((x) => x.status === 'rejected'));
   }).finally(() => setLoading(false)), []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    AdministrativeService.getLogs({ page: logPage, size: 10 }).then(setLogs).catch(() => setPartialError(true));
+  }, [logPage, listVersion]);
+
+  // Search runs on the server: wait until typing pauses
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // A new search, tab or filter starts again at the first page: the page belongs to one list key
+  const listKey = `${section}|${role}|${deptFilter}|${debouncedQuery}`;
+  const page = pageState.key === listKey ? pageState.page : 0;
+  const setPage = (p) => setPageState({ key: listKey, page: p });
+  // What is on screen is stale until the response for exactly this request has arrived
+  const requestKey = `${listKey}|${page}|${listVersion}`;
+  const listLoading = loaded.key !== requestKey;
+  const list = loaded.data;
+
+  useEffect(() => {
+    if (section !== 'users' && section !== 'courses') return undefined;
+    let cancelled = false;
+    const params = { page, size: PAGE_SIZE, q: debouncedQuery };
+    const request = section === 'users'
+      ? ROLE_TABS.find((t) => t.id === role).fetch(params)
+      : AdministrativeService.getCourses({ ...params, departmentId: deptFilter === 'ALL' ? null : deptFilter });
+    request
+      .then((data) => { if (!cancelled) setLoaded({ key: requestKey, data: data ?? EMPTY_PAGE }); })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoaded({ key: requestKey, data: EMPTY_PAGE });
+        toast.error('Could not load the list', apiError(err));
+      });
+    return () => { cancelled = true; };
+  }, [section, role, page, debouncedQuery, deptFilter, requestKey, toast]);
+
+  const refresh = () => { load(); setListVersion((v) => v + 1); };
 
   const deptName = useCallback((id) => departments.find((d) => d.id === id)?.name, [departments]);
 
@@ -151,7 +191,7 @@ const AdminPortal = () => {
       }
       toast.success(`${type === 'user' ? 'User' : 'Course'} ${item ? 'updated' : 'created'}`);
       setEditor(null);
-      load();
+      refresh();
     } catch (err) {
       const errors = fieldErrors(err);
       setFe(errors);
@@ -169,7 +209,7 @@ const AdminPortal = () => {
       else await AdministrativeService.deleteCourse(toDelete.item.id);
       toast.success(toDelete.type === 'user' ? 'User deactivated' : 'Course deleted');
       setToDelete(null);
-      load();
+      refresh();
     } catch (err) {
       toast.error(toDelete.type === 'user' ? 'Could not deactivate user' : 'Delete failed', apiError(err));
     } finally {
@@ -181,7 +221,7 @@ const AdminPortal = () => {
     try {
       await AdministrativeService.reactivateUser(u.id);
       toast.success('User reactivated', `${fullName(u)} can sign in again.`);
-      load();
+      refresh();
     } catch (err) {
       toast.error('Could not reactivate user', apiError(err));
     }
@@ -190,13 +230,14 @@ const AdminPortal = () => {
   /* ---------- derived lists ---------- */
 
   const roleTab = ROLE_TABS.find((t) => t.id === role);
-  const q = query.trim().toLowerCase();
-  const userRows = useMemo(() => (users[roleTab.key] ?? []).filter((u) => !q
-    || fullName(u).toLowerCase().includes(q) || u.username?.toLowerCase().includes(q)
-    || u.email?.toLowerCase().includes(q) || (u.studentNumber ?? u.staffNumber ?? '').toLowerCase().includes(q)), [users, roleTab, q]);
-  const courseRows = useMemo(() => courses
-    .filter((c) => deptFilter === 'ALL' || String(c.departmentId) === deptFilter)
-    .filter((c) => !q || c.name?.toLowerCase().includes(q) || c.code?.toLowerCase().includes(q)), [courses, deptFilter, q]);
+  const q = debouncedQuery;
+  // Rows of another list (a different tab, filter or search) are never shown, even while loading
+  const sameList = loaded.key?.startsWith(`${listKey}|`);
+  const userRows = section === 'users' && sameList ? list.content : [];
+  const courseRows = section === 'courses' && sameList ? list.content : [];
+  const pager = sameList && (
+    <Pagination page={list.page} totalPages={list.totalPages} totalElements={list.totalElements} onChange={setPage} />
+  );
 
   if (loading) return <Spinner label="Loading…" />;
 
@@ -216,18 +257,18 @@ const AdminPortal = () => {
       {section === 'overview' && (
         <>
           <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-            <StatCard label="Students" value={stats?.studentCount ?? users.students.length} icon={GraduationCap} />
-            <StatCard label="Academicians" value={stats?.academicianCount ?? users.academicians.length} icon={School} tone="info" />
-            <StatCard label="Staff" value={stats?.administrativeCount ?? users.administratives.length} icon={Shield} tone="info" />
-            <StatCard label="Courses" value={stats?.courseCount ?? courses.length} icon={BookOpen} tone="success"
+            <StatCard label="Students" value={stats?.studentCount ?? '—'} icon={GraduationCap} />
+            <StatCard label="Academicians" value={stats?.academicianCount ?? '—'} icon={School} tone="info" />
+            <StatCard label="Staff" value={stats?.administrativeCount ?? '—'} icon={Shield} tone="info" />
+            <StatCard label="Courses" value={stats?.courseCount ?? '—'} icon={BookOpen} tone="success"
               hint={stats?.activeSemesterName ? `Active: ${stats.activeSemesterName}` : undefined} />
           </div>
           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
             <Card className="xl:col-span-2">
               <CardHeader icon={Activity} title="Recent activity" description="Audit log of administrative actions." />
-              {logs.length === 0 ? <EmptyState icon={Activity} title="No activity recorded yet" /> : (
+              {logs.content.length === 0 ? <EmptyState icon={Activity} title="No activity recorded yet" /> : (
                 <ul className="max-h-[480px] divide-y divide-border overflow-y-auto">
-                  {logs.map((l) => (
+                  {logs.content.map((l) => (
                     <li key={l.id} className="flex items-start gap-3 px-5 py-3">
                       <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
                         {l.action?.includes('REGISTER') ? <UserPlus className="size-3.5" /> : <Activity className="size-3.5" />}
@@ -244,12 +285,13 @@ const AdminPortal = () => {
                   ))}
                 </ul>
               )}
+              <Pagination page={logs.page} totalPages={logs.totalPages} totalElements={logs.totalElements} onChange={setLogPage} />
             </Card>
             <Card>
               <CardHeader icon={Building2} title="Organisation" />
               <dl className="divide-y divide-border">
-                {[['Faculties', faculties.length], ['Departments', departments.length], ['Courses', courses.length],
-                  ['Unassigned courses', courses.filter((c) => !c.instructorId).length]].map(([k, v]) => (
+                {[['Faculties', faculties.length], ['Departments', departments.length], ['Courses', stats?.courseCount ?? '—'],
+                  ['Unassigned courses', stats?.unassignedCourseCount ?? '—']].map(([k, v]) => (
                   <div key={k} className="flex items-center justify-between px-5 py-3 text-sm">
                     <dt className="text-fg-muted">{k}</dt><dd className="font-medium tabular-nums">{v}</dd>
                   </div>
@@ -267,13 +309,13 @@ const AdminPortal = () => {
       {section === 'users' && (
         <>
           <Tabs className="mb-4" value={role} onChange={(id) => { setRole(id); setQuery(''); }}
-            tabs={ROLE_TABS.map((t) => ({ ...t, count: users[t.key]?.length ?? 0 }))} />
+            tabs={ROLE_TABS.map((t) => ({ ...t, count: t.id === role && !listLoading ? list.totalElements : undefined }))} />
           <Card>
             <div className="border-b border-border px-5 py-3">
               <Input icon={Search} placeholder="Search by name, username, email or number" value={query}
                 onChange={(e) => setQuery(e.target.value)} className="max-w-md" />
             </div>
-            {userRows.length === 0 ? <EmptyState icon={roleTab.icon} title={q ? 'No matches' : `No ${roleTab.label.toLowerCase()} yet`} /> : (
+            {listLoading && userRows.length === 0 ? <Spinner label="Loading…" /> : userRows.length === 0 ? <EmptyState icon={roleTab.icon} title={q ? 'No matches' : `No ${roleTab.label.toLowerCase()} yet`} /> : (
               <Table>
                 <THead><tr>
                   <TH>Name</TH><TH>{role === 'STUDENT' ? 'Student no.' : 'Staff no.'}</TH>
@@ -313,6 +355,7 @@ const AdminPortal = () => {
                 </TBody>
               </Table>
             )}
+            {pager}
           </Card>
         </>
       )}
@@ -322,13 +365,13 @@ const AdminPortal = () => {
           <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-3">
             <Input icon={Search} placeholder="Search by code or name" value={query} onChange={(e) => setQuery(e.target.value)} className="w-72" />
             <Select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="w-64" aria-label="Department">
-              <option value="ALL">All departments ({courses.length})</option>
+              <option value="ALL">All departments{stats?.courseCount != null ? ` (${stats.courseCount})` : ''}</option>
               {departments.map((d) => (
-                <option key={d.id} value={String(d.id)}>{d.name} ({courses.filter((c) => c.departmentId === d.id).length})</option>
+                <option key={d.id} value={String(d.id)}>{d.name} ({d.courseCount ?? 0})</option>
               ))}
             </Select>
           </div>
-          {courseRows.length === 0 ? <EmptyState icon={BookOpen} title={q || deptFilter !== 'ALL' ? 'No matching courses' : 'No courses yet'} /> : (
+          {listLoading && courseRows.length === 0 ? <Spinner label="Loading…" /> : courseRows.length === 0 ? <EmptyState icon={BookOpen} title={q || deptFilter !== 'ALL' ? 'No matching courses' : 'No courses yet'} /> : (
             <Table>
               <THead><tr><TH>Course</TH><TH>Department</TH><TH>Semester</TH><TH>Credits</TH><TH>Instructor</TH><TH /></tr></THead>
               <TBody>
@@ -351,6 +394,7 @@ const AdminPortal = () => {
               </TBody>
             </Table>
           )}
+          {pager}
         </Card>
       )}
 
@@ -365,8 +409,8 @@ const AdminPortal = () => {
                   {depts.length === 0 ? <EmptyState icon={Layers} title="No departments" /> : (
                     <ul className="divide-y divide-border">
                       {depts.map((d) => {
-                        const n = courses.filter((c) => c.departmentId === d.id).length;
-                        const s = users.students.filter((u) => u.departmentId === d.id).length;
+                        const n = d.courseCount ?? 0;
+                        const s = d.studentCount ?? 0;
                         return (
                           <li key={d.id} className="flex items-center justify-between gap-3 px-5 py-3">
                             <span className="flex items-center gap-2 text-sm font-medium"><Layers className="size-4 text-fg-subtle" />{d.name}</span>
@@ -427,7 +471,7 @@ const AdminPortal = () => {
                   <Field label="Advisor" htmlFor="u-adv">
                     <Select id="u-adv" value={editor.form.advisorId} onChange={setField('advisorId')}>
                       <option value="">No advisor</option>
-                      {users.academicians.map((a) => <option key={a.id} value={a.id}>{a.academicTitle ? `${a.academicTitle} ` : ''}{fullName(a)}</option>)}
+                      {academicians.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                     </Select>
                   </Field>
                 )}
@@ -457,7 +501,7 @@ const AdminPortal = () => {
                 <Field label="Instructor" htmlFor="c-ins" className="sm:col-span-3">
                   <Select id="c-ins" value={editor.form.instructorId} onChange={setField('instructorId')}>
                     <option value="">Unassigned</option>
-                    {users.academicians.map((a) => <option key={a.id} value={a.id}>{a.academicTitle ? `${a.academicTitle} ` : ''}{fullName(a)}</option>)}
+                    {academicians.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </Select>
                 </Field>
               </div>

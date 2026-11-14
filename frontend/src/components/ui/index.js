@@ -11,3 +11,4 @@ export { default as ToastProvider } from './ToastProvider';
 export { useToast } from './toast-context';
 export { default as ConfirmDialog } from './ConfirmDialog';
 export { default as Tabs } from './Tabs';
+export { default as Pagination } from './Pagination';

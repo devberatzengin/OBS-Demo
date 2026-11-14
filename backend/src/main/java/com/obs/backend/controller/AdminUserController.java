@@ -1,5 +1,7 @@
 package com.obs.backend.controller;
 
+import com.obs.backend.dto.common.PageResponse;
+import com.obs.backend.dto.admin.AcademicianOptionDTO;
 import jakarta.validation.Valid;
 
 import com.obs.backend.dto.admin.AdminAcademicianRegisterRequest;
@@ -47,19 +49,31 @@ public class AdminUserController {
         return ResponseEntity.ok("Advisor assigned successfully");
     }
 
+    // Paged lists (plan 4.2): ?page=0&size=25&q=term&departmentId=1
     @GetMapping("/students")
-    public ResponseEntity<List<AdminStudentRegisterRequest>> getAllStudents() {
-        return ResponseEntity.ok(adminService.getAllStudentsDetail());
+    public ResponseEntity<PageResponse<AdminStudentRegisterRequest>> getStudents(
+            @RequestParam(required = false) String q, @RequestParam(required = false) Long departmentId,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "25") int size) {
+        return ResponseEntity.ok(adminService.getStudents(q, departmentId, page, size));
     }
 
     @GetMapping("/academicians")
-    public ResponseEntity<List<AdminAcademicianRegisterRequest>> getAllAcademicians() {
-        return ResponseEntity.ok(adminService.getAllAcademiciansDetail());
+    public ResponseEntity<PageResponse<AdminAcademicianRegisterRequest>> getAcademicians(
+            @RequestParam(required = false) String q, @RequestParam(required = false) Long departmentId,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "25") int size) {
+        return ResponseEntity.ok(adminService.getAcademicians(q, departmentId, page, size));
+    }
+
+    /** id and name of every academician, for the advisor and instructor pickers */
+    @GetMapping("/academicians/options")
+    public ResponseEntity<List<AcademicianOptionDTO>> getAcademicianOptions() {
+        return ResponseEntity.ok(adminService.getAcademicianOptions());
     }
 
     @GetMapping("/administrative")
-    public ResponseEntity<List<AdminAdministrativeRegisterRequest>> getAllAdministratives() {
-        return ResponseEntity.ok(adminService.getAllAdministrativesDetail());
+    public ResponseEntity<PageResponse<AdminAdministrativeRegisterRequest>> getAdministratives(
+            @RequestParam(required = false) String q, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "25") int size) {
+        return ResponseEntity.ok(adminService.getAdministratives(q, page, size));
     }
 
     @PutMapping("/students/{id}")

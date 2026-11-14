@@ -131,6 +131,7 @@ class AccessMatrixIntegrationTest extends AbstractIntegrationTest {
             "PUT /api/admin/users/students/{studentId}/assign-advisor/{advisorId}",
             "GET /api/admin/users/students",
             "GET /api/admin/users/academicians",
+            "GET /api/admin/users/academicians/options",
             "GET /api/admin/users/administrative",
             "PUT /api/admin/users/students/{id}",
             "PUT /api/admin/users/academicians/{id}",
