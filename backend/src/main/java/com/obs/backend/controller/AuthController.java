@@ -2,7 +2,6 @@ package com.obs.backend.controller;
 
 import com.obs.backend.dto.auth.JwtResponse;
 import com.obs.backend.dto.auth.LoginRequest;
-import com.obs.backend.dto.auth.RegisterRequest;
 import com.obs.backend.security.ratelimit.LoginAttemptLimiter;
 import com.obs.backend.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,11 +28,4 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-/* 
-    @PostMapping("/register")
-    public ResponseEntity<String> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
-        authService.register(registerRequest);
-        return ResponseEntity.ok("User registered successfully!");
-    }
-*/
 }

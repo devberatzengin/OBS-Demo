@@ -297,3 +297,7 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 - 3.4: `@Valid` gövde doğrulaması `@PreAuthorize`'dan önce çalıştığı için, rolü olmayan biri geçersiz gövdeyle 403 yerine 400 alıyordu. Rol kuralları `SecurityConfig`'e de eklendi (filtre seviyesi); controller'lardaki `@PreAuthorize` ikinci kontrol olarak duruyor.
 - 3.4: `ALREADY_EXISTS` artık 409. Frontend durum koduna göre dallanmadığı için mesajlar etkilenmedi.
 - Bilinen eksik: aynı öğrencinin iki sekmeden eşzamanlı kaydı AKTS limitini aşabilir (kilit ders satırında, öğrenci satırında değil). Gerekirse 4. fazda öğrenci satırı da kilitlenir.
+
+**5. oturum (14 Kasım 2026)**: Faz 4'e başlarken uçları listelerken kritik bir açık bulundu ve ayrı commit olarak kapatıldı.
+- Kritik: `POST /api/auth/register` herkese açıktı ve rolü istekten alıyordu. `ad.soyad@uni.edu.tr` biçiminde bir adresle giriş yapmadan ADMIN hesabı açılabiliyordu. Frontend bu ucu kullanmıyordu; uç, servis metodu, `RegisterRequest` ve sadece orada kullanılan `EmailValidator` silindi. Hesapları admin ve personel açıyor (K3). İlk sistem analizinde bu açık gözden kaçmıştı.
+
