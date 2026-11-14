@@ -225,9 +225,9 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 ### Faz 4: Yetki matrisi ve performans
 
 **4.1 Erişim matrisi testi**
-- [ ] `RequestMappingHandlerMapping`'den tüm uçlar; uç × (anonim, öğrenci, hoca, personel, admin) beklenen sonuç tablosu; parametreli test
-- [ ] Tabloda olmayan yeni uç testi kırar
-- [ ] IDOR: başka öğrencinin kaydı, başkasının sohbeti, başka hocanın sınavı
+- [x] `RequestMappingHandlerMapping`'den tüm uçlar; uç × (anonim, öğrenci, hoca, personel, admin) beklenen sonuç tablosu; parametreli test
+- [x] Tabloda olmayan yeni uç testi kırar
+- [x] IDOR: başka öğrencinin kaydı, başkasının sohbeti, başka hocanın sınavı
 
 **4.2 Sorgular ve sayfalama**
 - [ ] 13 `findAll().stream().filter` → repository sorguları
@@ -300,4 +300,6 @@ Akademisyen servisindeki ders sahipliği kontrolleri (sınav, not, yoklama kayd�
 
 **5. oturum (14 Kasım 2026)**: Faz 4'e başlarken uçları listelerken kritik bir açık bulundu ve ayrı commit olarak kapatıldı.
 - Kritik: `POST /api/auth/register` herkese açıktı ve rolü istekten alıyordu. `ad.soyad@uni.edu.tr` biçiminde bir adresle giriş yapmadan ADMIN hesabı açılabiliyordu. Frontend bu ucu kullanmıyordu; uç, servis metodu, `RegisterRequest` ve sadece orada kullanılan `EmailValidator` silindi. Hesapları admin ve personel açıyor (K3). İlk sistem analizinde bu açık gözden kaçmıştı.
+- 4.1: Matris 92 uç × 5 çağıran (anonim, öğrenci, hoca, personel, admin). Rolü olmayan çağıran güvenlik filtresinde, boş gövdeli 401/403 ile durmalı; rolü olan filtreyi geçmeli. Servisin döndürdüğü 400/404 ya da JSON gövdeli 403 serbest. Bu ayrım, 3.4'te rol kurallarının `SecurityConfig`'e de eklenmesine dayanıyor.
+- 4.1: Sohbet ve yapılacaklar uçları herkese açık ama servis her zaman giriş yapan kullanıcının verisini döndürüyor; IDOR testi sohbet için bunu doğruluyor.
 
