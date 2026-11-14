@@ -100,7 +100,8 @@ public class AdminIntegrationTest extends AbstractIntegrationTest {
         // Verify id2 is active, id1 is inactive
         mockMvc.perform(get("/api/admin/academics/semesters"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == " + id2 + ")].active").value(true));
+                .andExpect(jsonPath("$[?(@.id == " + id2 + ")].isActive").value(true))
+                .andExpect(jsonPath("$[?(@.id == " + id1 + ")].isActive").value(false));
     }
 
     // --- Phase 3: User Management ---

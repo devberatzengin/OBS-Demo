@@ -145,15 +145,26 @@ class AdminListPagingIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void anAnnouncementReachesEveryActiveStudentInOneStatement() throws Exception {
-        long before = notificationRepository.count();
-        long activeStudents = studentRepository.findAll().stream().filter(User::isActive).count();
+        // Other test classes may leave committed users behind, so check this test's own users
+        Student inactive = students.get(0);
+        inactive.setActive(false);
+        studentRepository.saveAndFlush(inactive);
+        String title = "Exam week " + System.nanoTime();
 
         mockMvc.perform(post("/api/admin/operations/announcement").with(auth.as(admin))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"title\":\"Exam week\",\"content\":\"Good luck\",\"targetRole\":\"STUDENT\"}"))
+                        .content("{\"title\":\"" + title + "\",\"content\":\"Good luck\",\"targetRole\":\"STUDENT\"}"))
                 .andExpect(status().isOk());
 
-        assertThat(notificationRepository.count() - before).isEqualTo(activeStudents);
+        for (Student s : students) {
+            long received = notificationRepository.findByUserIdOrderByTimestampDesc(s.getId()).stream()
+                    .filter(n -> title.equals(n.getTitle())).count();
+            assertThat(received).as("notifications for %s", s.getUsername()).isEqualTo(s == inactive ? 0 : 1);
+        }
+        for (User other : List.of(advisor, admin)) {
+            assertThat(notificationRepository.findByUserIdOrderByTimestampDesc(other.getId()))
+                    .noneMatch(n -> title.equals(n.getTitle()));
+        }
     }
 
     @Test

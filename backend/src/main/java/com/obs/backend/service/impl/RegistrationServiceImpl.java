@@ -82,7 +82,8 @@ public class RegistrationServiceImpl implements RegistrationService {
                 .orElseThrow(() -> new ObsException(ErrorCode.REGISTRATION_CLOSED, "No active semester for registration"));
 
         List<Long> courseIds = request == null || request.getCourseIds() == null ? List.of() : request.getCourseIds();
-        if (courseIds.isEmpty() || courseIds.contains(null)) {
+        // anyMatch, not contains(null): List.of(...) throws on contains(null)
+        if (courseIds.isEmpty() || courseIds.stream().anyMatch(java.util.Objects::isNull)) {
             throw new ObsException(ErrorCode.VALIDATION_ERROR, "Select at least one course");
         }
 

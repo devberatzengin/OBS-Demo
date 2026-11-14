@@ -604,8 +604,10 @@ public class AcademicianServiceImpl implements AcademicianService {
             if (s.getDayOfWeek() == currentDay) {
                 LocalTime startTime = s.getStartTime();
                 LocalTime allowedEndTime = s.getEndTime().plusHours(2);
+                // A late lesson's window wraps past midnight (23:00 + 2h = 01:00): then it lasts to the day's end
+                boolean wrapsPastMidnight = allowedEndTime.isBefore(s.getEndTime());
 
-                if (!currentTime.isBefore(startTime) && !currentTime.isAfter(allowedEndTime)) {
+                if (!currentTime.isBefore(startTime) && (wrapsPastMidnight || !currentTime.isAfter(allowedEndTime))) {
                     isWithinWindow = true;
                     break;
                 }

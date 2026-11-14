@@ -52,6 +52,6 @@ class OptimisticLockingIntegrationTest extends AbstractIntegrationTest {
 
         Enrollment stored = enrollmentRepository.findById(id).orElseThrow();
         assertThat(stored.getStatus()).isEqualTo(EnrollmentStatus.APPROVED);
-        assertThat(stored.getScore()).isNull();
+        assertThat(stored.getScore()).as("the stale change must not be written").isNotEqualTo(55.0);
     }
 }

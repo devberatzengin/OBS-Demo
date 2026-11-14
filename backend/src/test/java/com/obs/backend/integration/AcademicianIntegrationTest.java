@@ -69,6 +69,9 @@ public class AcademicianIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private AttendanceRecordRepository attendanceRecordRepository;
 
+    @Autowired
+    private ScheduleRepository scheduleRepository;
+
     private Academician testHoca;
     private Classroom testClassroom;
     private Semester testSemester;
@@ -292,6 +295,14 @@ public class AcademicianIntegrationTest extends AbstractIntegrationTest {
         Course course = courseRepository.findByInstructorId(testHoca.getId()).get(0);
         Student student = studentRepository.findByAdvisorId(testHoca.getId()).get(0);
 
+        // Attendance is only accepted during a lesson (or up to 2 hours after it), so put one around now
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        java.time.LocalTime end = now.toLocalTime().isAfter(java.time.LocalTime.of(21, 59))
+                ? java.time.LocalTime.of(21, 59) : now.toLocalTime();
+        scheduleRepository.save(Schedule.builder()
+                .course(course).classroom(testClassroom).dayOfWeek(now.getDayOfWeek())
+                .startTime(java.time.LocalTime.MIDNIGHT).endTime(end).build());
+
         AttendanceEntryRequest request = AttendanceEntryRequest.builder()
                 .attendanceDate(LocalDate.now())
                 .attendance(List.of(AttendanceEntryRequest.StudentAttendanceDTO.builder()
@@ -349,11 +360,13 @@ public class AcademicianIntegrationTest extends AbstractIntegrationTest {
     @Order(12)
     @DisplayName("Should manage advisor approvals")
     void shouldManageApprovals() throws Exception {
-        // Create a PENDING enrollment
+        // Turn the existing enrollment into a request: a second row for the same
+        // student, course and semester is rejected by the database (V3)
         Course course = courseRepository.findByInstructorId(testHoca.getId()).get(0);
         Student student = studentRepository.findByAdvisorId(testHoca.getId()).get(0);
-        Enrollment pending = enrollmentRepository.save(Enrollment.builder()
-                .course(course).student(student).semester(testSemester).status(EnrollmentStatus.PENDING).build());
+        Enrollment pending = enrollmentRepository.findByCourseIdAndStudentId(course.getId(), student.getId()).orElseThrow();
+        pending.setStatus(EnrollmentStatus.PENDING);
+        pending = enrollmentRepository.save(pending);
 
         // 1. List pending
         mockMvc.perform(get("/api/academician/advisees/enrollments/pending"))
